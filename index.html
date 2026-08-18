@@ -1,0 +1,2395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECHT — Bakery Schedule</title>
+<style>
+  /* ─── ECHT BRAND FOUNDATION ─────────────────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --echt-black:    #0f0e0c;
+    --echt-dark:     #1a1814;
+    --echt-charcoal: #2a2620;
+    --echt-brown:    #3d3028;
+    --echt-warm:     #5c4a38;
+    --echt-tan:      #8c7355;
+    --echt-cream:    #d4c4a8;
+    --echt-parchment:#ede0c8;
+    --echt-white:    #f5efe3;
+    --echt-gold:     #c8a96e;
+    --echt-rust:     #a0522d;
+    --echt-ember:    #c0622a;
+
+    /* Category colors — earthy, distinct, craftsman palette */
+    --cat-croissant:     #c8a96e;  /* gold */
+    --cat-pumpernickel:  #5a4a3a;  /* dark bark */
+    --cat-brioche:       #d4956a;  /* warm amber */
+    --cat-bagels:        #7a9e7e;  /* sage */
+    --cat-cinnamon:      #b5651d;  /* cinnamon */
+    --cat-sourdough:     #8b7355;  /* wheat */
+    --cat-focaccia:      #6b8e6b;  /* herb green */
+    --cat-custom:        #7a6a8a;  /* muted plum */
+
+    --oven-block:        #c0622a;  /* ember orange — oven is hot */
+    --oven-conflict:     #8b0000;  /* deep red — conflict */
+
+    --passive-opacity: 0.55;
+    --grid-line: rgba(140,115,85,0.15);
+    --hour-line:  rgba(140,115,85,0.30);
+
+    --font-main: 'Space Grotesk', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--echt-black);
+    color: var(--echt-cream);
+    font-family: var(--font-main);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ─── SCROLLBAR ─────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--echt-dark); }
+  ::-webkit-scrollbar-thumb { background: var(--echt-warm); border-radius: 3px; }
+
+  /* ─── LAYOUT ────────────────────────────────────────────────────────── */
+  #app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 260px 1fr;
+    grid-template-areas:
+      "header header"
+      "sidebar main";
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── HEADER ────────────────────────────────────────────────────────── */
+  #header {
+    grid-area: header;
+    background: var(--echt-dark);
+    border-bottom: 1px solid var(--echt-brown);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    height: 56px;
+    position: relative;
+    z-index: 100;
+  }
+
+  .echt-wordmark {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.25em;
+    color: var(--echt-gold);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .echt-wordmark span {
+    color: var(--echt-cream);
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    margin-left: 10px;
+    opacity: 0.7;
+    vertical-align: middle;
+  }
+
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  .week-nav button {
+    background: var(--echt-charcoal);
+    border: 1px solid var(--echt-brown);
+    color: var(--echt-cream);
+    width: 30px; height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .week-nav button:hover { background: var(--echt-warm); }
+
+  #week-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--echt-tan);
+    letter-spacing: 0.08em;
+    min-width: 180px;
+    text-align: center;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--echt-brown);
+    background: var(--echt-charcoal);
+    color: var(--echt-cream);
+    font-family: var(--font-main);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--echt-warm); border-color: var(--echt-tan); }
+  .btn.primary {
+    background: var(--echt-gold);
+    color: var(--echt-black);
+    border-color: var(--echt-gold);
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: var(--echt-cream); }
+  .btn.danger { border-color: var(--echt-rust); color: var(--echt-rust); }
+  .btn.danger:hover { background: var(--echt-rust); color: var(--echt-white); }
+
+  /* ─── SIDEBAR ───────────────────────────────────────────────────────── */
+  #sidebar {
+    grid-area: sidebar;
+    background: var(--echt-dark);
+    border-right: 1px solid var(--echt-brown);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--echt-brown);
+    padding: 16px;
+  }
+
+  .sidebar-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+    margin-bottom: 12px;
+  }
+
+  /* Category list */
+  .category-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .category-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border: 1px solid transparent;
+  }
+  .category-item:hover { background: var(--echt-charcoal); }
+  .category-item.active { background: var(--echt-charcoal); border-color: var(--echt-brown); }
+
+  .cat-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .cat-name {
+    font-size: 12px;
+    font-weight: 500;
+    flex: 1;
+    color: var(--echt-cream);
+  }
+
+  .cat-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--echt-tan);
+  }
+
+  /* Add block form */
+  .add-form { display: flex; flex-direction: column; gap: 8px; }
+
+  .form-row { display: flex; flex-direction: column; gap: 4px; }
+
+  .form-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+  }
+
+  .form-input, .form-select, .form-textarea {
+    background: var(--echt-charcoal);
+    border: 1px solid var(--echt-brown);
+    color: var(--echt-cream);
+    font-family: var(--font-main);
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    width: 100%;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--echt-gold);
+  }
+  .form-select option { background: var(--echt-charcoal); }
+  .form-textarea { resize: vertical; min-height: 48px; }
+
+  .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+
+  .toggle-label {
+    font-size: 12px;
+    color: var(--echt-cream);
+  }
+
+  .toggle-sub {
+    font-size: 10px;
+    color: var(--echt-tan);
+    margin-top: 1px;
+  }
+
+  /* Toggle switch */
+  .toggle-switch {
+    position: relative;
+    width: 36px; height: 20px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--echt-charcoal);
+    border: 1px solid var(--echt-brown);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    left: 2px; top: 2px;
+    background: var(--echt-tan);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--echt-gold); border-color: var(--echt-gold); }
+  .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+    background: var(--echt-black);
+  }
+
+  /* Day selector */
+  .day-selector {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .day-btn {
+    background: var(--echt-charcoal);
+    border: 1px solid var(--echt-brown);
+    color: var(--echt-tan);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 4px 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.12s;
+    letter-spacing: 0.05em;
+  }
+  .day-btn:hover { border-color: var(--echt-tan); color: var(--echt-cream); }
+  .day-btn.selected { background: var(--echt-gold); border-color: var(--echt-gold); color: var(--echt-black); font-weight: 700; }
+
+  /* ─── MAIN AREA ─────────────────────────────────────────────────────── */
+  #main {
+    grid-area: main;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--echt-black);
+  }
+
+  /* Tab bar */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--echt-brown);
+    background: var(--echt-dark);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--echt-cream); }
+  .tab.active { color: var(--echt-gold); border-bottom-color: var(--echt-gold); }
+
+  /* ─── SCHEDULE GRID ─────────────────────────────────────────────────── */
+  .schedule-view {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .schedule-view.hidden { display: none; }
+
+  .grid-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+  }
+
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: 52px repeat(7, 1fr);
+    min-width: 700px;
+    position: relative;
+  }
+
+  /* Day headers */
+  .day-header-row {
+    display: contents;
+  }
+
+  .time-gutter-header {
+    background: var(--echt-dark);
+    border-right: 1px solid var(--echt-brown);
+    border-bottom: 1px solid var(--echt-brown);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: 40px;
+  }
+
+  .day-header {
+    background: var(--echt-dark);
+    border-bottom: 1px solid var(--echt-brown);
+    border-right: 1px solid var(--grid-line);
+    padding: 8px 6px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: 40px;
+  }
+
+  .day-header .day-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+  }
+
+  .day-header .day-date {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--echt-cream);
+    line-height: 1;
+  }
+
+  .day-header.today .day-date { color: var(--echt-gold); }
+  .day-header.today { border-bottom-color: var(--echt-gold); }
+
+  /* Time rows */
+  .time-body {
+    display: contents;
+  }
+
+  .time-slot-row {
+    display: contents;
+  }
+
+  .time-label {
+    background: var(--echt-dark);
+    border-right: 1px solid var(--echt-brown);
+    padding: 0 6px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding-top: 2px;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+  }
+
+  .time-label span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--echt-tan);
+    letter-spacing: 0.05em;
+    transform: translateY(-6px);
+    white-space: nowrap;
+  }
+
+  .time-cell {
+    border-right: 1px solid var(--grid-line);
+    border-bottom: 1px solid var(--grid-line);
+    position: relative;
+    cursor: crosshair;
+    transition: background 0.1s;
+    min-height: 20px;
+  }
+
+  .time-cell.hour-start {
+    border-top: 1px solid var(--hour-line);
+  }
+
+  .time-cell:hover { background: rgba(200,169,110,0.04); }
+
+  /* ─── TASK BLOCKS ───────────────────────────────────────────────────── */
+  .task-block {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-radius: 4px;
+    padding: 3px 6px;
+    cursor: grab;
+    z-index: 5;
+    overflow: hidden;
+    border-left: 3px solid;
+    transition: opacity 0.15s, box-shadow 0.15s;
+    user-select: none;
+    min-height: 18px;
+  }
+
+  .task-block:hover {
+    z-index: 15;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+
+  .task-block.dragging {
+    opacity: 0.7;
+    cursor: grabbing;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+
+  .task-block.passive {
+    opacity: var(--passive-opacity);
+    border-style: dashed;
+  }
+
+  .task-block .block-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--echt-white);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .task-block .block-time {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+  }
+
+  .task-block .block-cat {
+    font-size: 8px;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .task-block .block-passive-badge {
+    display: inline-block;
+    font-size: 7px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 2px;
+    padding: 0 3px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.05em;
+    margin-top: 1px;
+  }
+
+  /* Resize handle */
+  .resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: ns-resize;
+    background: rgba(255,255,255,0.1);
+    border-radius: 0 0 4px 4px;
+  }
+  .resize-handle:hover { background: rgba(255,255,255,0.25); }
+
+  /* Delete button on block */
+  .block-delete {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    width: 14px; height: 14px;
+    background: rgba(0,0,0,0.4);
+    border: none;
+    border-radius: 2px;
+    color: rgba(255,255,255,0.7);
+    font-size: 10px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+  }
+  .task-block:hover .block-delete { display: flex; }
+  .block-delete:hover { background: var(--echt-rust); color: white; }
+
+  /* ─── OVEN TRACKER ──────────────────────────────────────────────────── */
+  .oven-view {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .oven-view.hidden { display: none; }
+
+  .oven-header {
+    padding: 12px 20px;
+    background: var(--echt-dark);
+    border-bottom: 1px solid var(--echt-brown);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .oven-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--echt-ember);
+  }
+
+  .oven-legend {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--echt-tan);
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+  }
+
+  .oven-grid-container {
+    flex: 1;
+    overflow: auto;
+  }
+
+  .oven-grid {
+    display: grid;
+    grid-template-columns: 52px repeat(7, 1fr);
+    min-width: 700px;
+  }
+
+  .oven-block {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-radius: 4px;
+    padding: 3px 6px;
+    cursor: grab;
+    z-index: 5;
+    overflow: hidden;
+    border-left: 3px solid var(--echt-ember);
+    background: rgba(192,98,42,0.25);
+    border-top: 1px solid rgba(192,98,42,0.4);
+    border-right: 1px solid rgba(192,98,42,0.2);
+    border-bottom: 1px solid rgba(192,98,42,0.2);
+    user-select: none;
+    min-height: 18px;
+    transition: box-shadow 0.15s;
+  }
+
+  .oven-block:hover {
+    z-index: 15;
+    box-shadow: 0 4px 16px rgba(192,98,42,0.3);
+  }
+
+  .oven-block.conflict {
+    background: rgba(139,0,0,0.35);
+    border-left-color: #8b0000;
+    border-top-color: rgba(139,0,0,0.5);
+    animation: pulse-conflict 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-conflict {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139,0,0,0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(139,0,0,0.1); }
+  }
+
+  .oven-block .block-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--echt-parchment);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .oven-block .block-time {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: rgba(212,196,168,0.7);
+  }
+
+  .oven-block .block-temp {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--echt-ember);
+  }
+
+  .oven-block .conflict-badge {
+    font-size: 8px;
+    color: #ff6b6b;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── ANALYTICS VIEW ────────────────────────────────────────────────── */
+  .analytics-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: none;
+  }
+  .analytics-view.active { display: block; }
+
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--echt-dark);
+    border: 1px solid var(--echt-brown);
+    border-radius: 6px;
+    padding: 16px;
+  }
+
+  .stat-card-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+    margin-bottom: 8px;
+  }
+
+  .stat-card-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--echt-gold);
+    font-family: var(--font-mono);
+    line-height: 1;
+  }
+
+  .stat-card-sub {
+    font-size: 11px;
+    color: var(--echt-tan);
+    margin-top: 4px;
+  }
+
+  .chart-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .chart-bar-label {
+    font-size: 11px;
+    color: var(--echt-cream);
+    width: 100px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chart-bar-track {
+    flex: 1;
+    height: 14px;
+    background: var(--echt-charcoal);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .chart-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .chart-bar-val {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--echt-tan);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .insight-card {
+    background: var(--echt-dark);
+    border: 1px solid var(--echt-brown);
+    border-left: 3px solid var(--echt-gold);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .insight-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--echt-gold);
+    margin-bottom: 4px;
+  }
+
+  .insight-text {
+    font-size: 12px;
+    color: var(--echt-cream);
+    line-height: 1.6;
+  }
+
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--echt-brown);
+  }
+
+  /* ─── MODAL ─────────────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--echt-dark);
+    border: 1px solid var(--echt-brown);
+    border-radius: 8px;
+    padding: 24px;
+    width: 380px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: translateY(8px);
+    transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--echt-gold);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--echt-brown);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--echt-brown);
+  }
+
+  /* ─── TOAST ─────────────────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--echt-charcoal);
+    border: 1px solid var(--echt-brown);
+    border-left: 3px solid var(--echt-gold);
+    color: var(--echt-cream);
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    z-index: 999;
+    transform: translateY(60px);
+    opacity: 0;
+    transition: all 0.25s;
+    max-width: 300px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { border-left-color: var(--echt-rust); }
+
+  /* ─── EMPTY STATE ───────────────────────────────────────────────────── */
+  .empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+  .empty-state-icon { font-size: 32px; margin-bottom: 8px; }
+  .empty-state-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--echt-tan);
+  }
+
+  /* ─── CURRENT TIME LINE ─────────────────────────────────────────────── */
+  .now-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--echt-gold);
+    z-index: 8;
+    pointer-events: none;
+  }
+  .now-line::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    width: 10px; height: 10px;
+    background: var(--echt-gold);
+    border-radius: 50%;
+  }
+
+  /* ─── CONFLICT WARNING ──────────────────────────────────────────────── */
+  .conflict-banner {
+    background: rgba(139,0,0,0.2);
+    border: 1px solid rgba(139,0,0,0.5);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 8px 16px;
+    font-size: 11px;
+    color: #ff8888;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    display: none;
+  }
+  .conflict-banner.visible { display: block; }
+
+  /* ─── RESPONSIVE ────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    #app {
+      grid-template-columns: 1fr;
+      grid-template-areas: "header" "main";
+    }
+    #sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════════════ -->
+  <header id="header">
+    <div class="echt-wordmark">EcHT<span>/ Bakery Schedule</span></div>
+
+    <div class="week-nav">
+      <button id="prev-week" title="Previous week">‹</button>
+      <div id="week-label">—</div>
+      <button id="next-week" title="Next week">›</button>
+      <button id="today-btn" class="btn" style="margin-left:4px">Today</button>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn" id="export-btn">Export JSON</button>
+      <button class="btn" id="import-btn">Import</button>
+      <button class="btn primary" id="add-block-btn">+ Add Block</button>
+    </div>
+  </header>
+
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════ -->
+  <aside id="sidebar">
+
+    <!-- Categories -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Baked Goods</div>
+      <div class="category-list" id="category-list"></div>
+    </div>
+
+    <!-- Quick Add -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Add</div>
+      <div class="add-form" id="quick-add-form">
+
+        <div class="form-row">
+          <div class="form-label">Task Name</div>
+          <input class="form-input" id="qa-name" placeholder="e.g. Laminate dough" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Category</div>
+          <select class="form-select" id="qa-category"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Day</div>
+          <div class="day-selector" id="qa-day-selector"></div>
+        </div>
+
+        <div class="time-row">
+          <div class="form-row">
+            <div class="form-label">Start</div>
+            <input class="form-input" id="qa-start" type="time" value="06:00" />
+          </div>
+          <div class="form-row">
+            <div class="form-label">End</div>
+            <input class="form-input" id="qa-end" type="time" value="07:00" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Notes</div>
+          <textarea class="form-textarea" id="qa-notes" placeholder="Temp, hydration, notes…"></textarea>
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Passive / Waiting</div>
+            <div class="toggle-sub">Can overlap other tasks</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="qa-passive">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <button class="btn primary" id="qa-submit" style="width:100%;margin-top:4px">Add to Schedule</button>
+      </div>
+    </div>
+
+    <!-- Oven Quick Add -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Oven Block</div>
+      <div class="add-form">
+
+        <div class="form-row">
+          <div class="form-label">Item</div>
+          <input class="form-input" id="ov-name" placeholder="e.g. Croissants — Bake" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Category</div>
+          <select class="form-select" id="ov-category"></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Day</div>
+          <div class="day-selector" id="ov-day-selector"></div>
+        </div>
+
+        <div class="time-row">
+          <div class="form-row">
+            <div class="form-label">Start</div>
+            <input class="form-input" id="ov-start" type="time" value="06:00" />
+          </div>
+          <div class="form-row">
+            <div class="form-label">End</div>
+            <input class="form-input" id="ov-end" type="time" value="07:00" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Temp (°F)</div>
+          <input class="form-input" id="ov-temp" type="number" placeholder="375" min="200" max="600" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-label">Notes</div>
+          <textarea class="form-textarea" id="ov-notes" placeholder="Steam, rack position…"></textarea>
+        </div>
+
+        <button class="btn" id="ov-submit" style="width:100%;margin-top:4px;border-color:var(--echt-ember);color:var(--echt-ember)">Add Oven Block</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══ MAIN ══════════════════════════════════════════════════════════ -->
+  <main id="main">
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <div class="tab active" data-tab="schedule">Weekly Schedule</div>
+      <div class="tab" data-tab="oven">Oven Tracker</div>
+      <div class="tab" data-tab="analytics">Analytics</div>
+    </div>
+
+    <!-- ── SCHEDULE VIEW ─────────────────────────────────────────────── -->
+    <div class="schedule-view" id="schedule-view">
+      <div class="conflict-banner" id="schedule-conflict-banner">
+        ⚠ Active task overlap detected — check your schedule
+      </div>
+      <div class="grid-container" id="schedule-grid-container">
+        <div class="schedule-grid" id="schedule-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── OVEN VIEW ─────────────────────────────────────────────────── -->
+    <div class="oven-view hidden" id="oven-view">
+      <div class="oven-header">
+        <div class="oven-title">🔥 Oven Schedule — No Overlaps Permitted</div>
+        <div class="oven-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--echt-ember)"></div>
+            Scheduled
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#8b0000"></div>
+            Conflict
+          </div>
+        </div>
+      </div>
+      <div class="conflict-banner" id="oven-conflict-banner">
+        🔥 Oven conflict — two items scheduled at the same time. Fix before baking.
+      </div>
+      <div class="oven-grid-container" id="oven-grid-container">
+        <div class="oven-grid" id="oven-grid"></div>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS VIEW ────────────────────────────────────────────── -->
+    <div class="analytics-view" id="analytics-view">
+      <div class="section-title">This Week at a Glance</div>
+      <div class="analytics-grid" id="stats-grid"></div>
+
+      <div class="section-title" style="margin-top:24px">Time by Category</div>
+      <div id="category-chart" style="background:var(--echt-dark);border:1px solid var(--echt-brown);border-radius:6px;padding:16px;margin-bottom:24px"></div>
+
+      <div class="section-title">Oven Utilization by Day</div>
+      <div id="oven-chart" style="background:var(--echt-dark);border:1px solid var(--echt-brown);border-radius:6px;padding:16px;margin-bottom:24px"></div>
+
+      <div class="section-title">Craft Insights</div>
+      <div id="insights-container"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══ MODAL ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-title" id="modal-title">Edit Block</div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Hidden file input for import -->
+<input type="file" id="import-file-input" accept=".json" style="display:none">
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ECHT BAKERY SCHEDULER — Core Application
+   Craftsmen don't waste time. Neither does this scheduler.
+═══════════════════════════════════════════════════════════════════════ */
+
+// ─── CONSTANTS ──────────────────────────────────────────────────────────
+const SLOT_HEIGHT = 20;       // px per 15-min slot
+const SLOTS_PER_HOUR = 4;
+const TOTAL_HOURS = 24;
+const TOTAL_SLOTS = TOTAL_HOURS * SLOTS_PER_HOUR;
+const START_HOUR = 0;
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+const CATEGORIES = [
+  { id: 'croissant',    name: 'Croissant',     color: '#c8a96e' },
+  { id: 'pumpernickel', name: 'Pumpernickel',  color: '#7a6050' },
+  { id: 'brioche',      name: 'Brioche',       color: '#d4956a' },
+  { id: 'bagels',       name: 'Bagels',        color: '#7a9e7e' },
+  { id: 'cinnamon',     name: 'Cinnamon Rolls',color: '#b5651d' },
+  { id: 'sourdough',    name: 'Sourdough',     color: '#8b7355' },
+  { id: 'focaccia',     name: 'Focaccia',      color: '#6b8e6b' },
+  { id: 'custom',       name: 'Other',         color: '#7a6a8a' },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────
+let state = {
+  weekOffset: 0,
+  tasks: [],       // { id, name, category, day(0-6), startSlot, endSlot, passive, notes }
+  ovenBlocks: [],  // { id, name, category, day(0-6), startSlot, endSlot, temp, notes }
+  activeTab: 'schedule',
+  selectedDayQA: 0,
+  selectedDayOV: 0,
+};
+
+let dragState = null;
+let resizeState = null;
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem('echt_bakery_v2', JSON.stringify({
+      tasks: state.tasks,
+      ovenBlocks: state.ovenBlocks,
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('echt_bakery_v2');
+    if (raw) {
+      const saved = JSON.parse(raw);
+      state.tasks = saved.tasks || [];
+      state.ovenBlocks = saved.ovenBlocks || [];
+    }
+  } catch(e) {}
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────
+function uid() {
+  return Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+}
+
+function slotToTime(slot) {
+  const totalMin = slot * 15;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function timeToSlot(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return Math.round((h * 60 + m) / 15);
+}
+
+function slotToY(slot) {
+  return slot * SLOT_HEIGHT;
+}
+
+function yToSlot(y) {
+  return Math.max(0, Math.min(TOTAL_SLOTS - 1, Math.round(y / SLOT_HEIGHT)));
+}
+
+function getCatColor(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  return cat ? cat.color : '#7a6a8a';
+}
+
+function getCatName(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  return cat ? cat.name : catId;
+}
+
+function getWeekDates() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + state.weekOffset * 7);
+  return Array.from({length: 7}, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+function isToday(date) {
+  const now = new Date();
+  return date.toDateString() === now.toDateString();
+}
+
+function formatWeekLabel(dates) {
+  const opts = { month: 'short', day: 'numeric' };
+  return `${dates[0].toLocaleDateString('en-US', opts)} — ${dates[6].toLocaleDateString('en-US', opts)}, ${dates[0].getFullYear()}`;
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = type === 'error' ? 'error show' : 'show';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2800);
+}
+
+// ─── OVERLAP DETECTION ───────────────────────────────────────────────────
+function blocksOverlap(a, b) {
+  return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
+}
+
+function hasOvenConflict() {
+  const ob = state.ovenBlocks;
+  for (let i = 0; i < ob.length; i++) {
+    for (let j = i + 1; j < ob.length; j++) {
+      if (blocksOverlap(ob[i], ob[j])) return true;
+    }
+  }
+  return false;
+}
+
+function hasScheduleConflict() {
+  const active = state.tasks.filter(t => !t.passive);
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      if (blocksOverlap(active[i], active[j])) return true;
+    }
+  }
+  return false;
+}
+
+function getOvenConflictIds() {
+  const conflicts = new Set();
+  const ob = state.ovenBlocks;
+  for (let i = 0; i < ob.length; i++) {
+    for (let j = i + 1; j < ob.length; j++) {
+      if (blocksOverlap(ob[i], ob[j])) {
+        conflicts.add(ob[i].id);
+        conflicts.add(ob[j].id);
+      }
+    }
+  }
+  return conflicts;
+}
+
+// ─── GRID BUILDER ────────────────────────────────────────────────────────
+function buildGrid(containerId, gridId, blockRenderer) {
+  const grid = document.getElementById(gridId);
+  const dates = getWeekDates();
+  grid.innerHTML = '';
+
+  // Header row
+  const gutterH = document.createElement('div');
+  gutterH.className = 'time-gutter-header';
+  grid.appendChild(gutterH);
+
+  dates.forEach((date, i) => {
+    const dh = document.createElement('div');
+    dh.className = 'day-header' + (isToday(date) ? ' today' : '');
+    dh.innerHTML = `<div class="day-name">${DAYS[i]}</div><div class="day-date">${date.getDate()}</div>`;
+    grid.appendChild(dh);
+  });
+
+  // Time rows
+  for (let slot = 0; slot < TOTAL_SLOTS; slot++) {
+    const isHourStart = slot % SLOTS_PER_HOUR === 0;
+
+    // Time label
+    const label = document.createElement('div');
+    label.className = 'time-label';
+    label.style.height = SLOT_HEIGHT + 'px';
+    if (isHourStart) {
+      const h = Math.floor(slot / SLOTS_PER_HOUR);
+      const ampm = h < 12 ? 'am' : 'pm';
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      label.innerHTML = `<span>${h12}${ampm}</span>`;
+    }
+    grid.appendChild(label);
+
+    // Day cells
+    for (let day = 0; day < 7; day++) {
+      const cell = document.createElement('div');
+      cell.className = 'time-cell' + (isHourStart ? ' hour-start' : '');
+      cell.style.height = SLOT_HEIGHT + 'px';
+      cell.dataset.slot = slot;
+      cell.dataset.day = day;
+      grid.appendChild(cell);
+    }
+  }
+
+  // Render blocks as absolute positioned over the grid
+  blockRenderer(grid, dates);
+
+  // Current time line
+  updateNowLine(grid);
+}
+
+function updateNowLine(grid) {
+  const existing = grid.querySelector('.now-line');
+  if (existing) existing.remove();
+
+  const now = new Date();
+  const todayIdx = (now.getDay() + 6) % 7; // Mon=0
+  const slot = (now.getHours() * 60 + now.getMinutes()) / 15;
+
+  // Find the column for today
+  const dayHeaders = grid.querySelectorAll('.day-header');
+  if (todayIdx >= dayHeaders.length) return;
+
+  const line = document.createElement('div');
+  line.className = 'now-line';
+  line.style.top = (40 + slotToY(slot)) + 'px'; // 40 = header height
+  // Position across today's column only
+  const colWidth = 100 / 7;
+  line.style.left = `calc(52px + ${todayIdx * colWidth}%)`;
+  line.style.right = `calc(${(6 - todayIdx) * colWidth}%)`;
+  grid.style.position = 'relative';
+  grid.appendChild(line);
+}
+
+// ─── SCHEDULE RENDERER ───────────────────────────────────────────────────
+function renderSchedule() {
+  buildGrid('schedule-grid-container', 'schedule-grid', renderTaskBlocks);
+  document.getElementById('schedule-conflict-banner').classList.toggle('visible', hasScheduleConflict());
+  updateCategoryCounts();
+}
+
+function renderTaskBlocks(grid) {
+  const HEADER_H = 40;
+  const GUTTER_W = 52;
+
+  // We need column widths — use a wrapper approach
+  // Each day column is 1fr of (total - 52px) / 7
+  state.tasks.forEach(task => {
+    const el = createTaskBlockEl(task);
+    const top = HEADER_H + slotToY(task.startSlot);
+    const height = Math.max(18, slotToY(task.endSlot - task.startSlot));
+    const colW = `calc((100% - ${GUTTER_W}px) / 7)`;
+
+    el.style.position = 'absolute';
+    el.style.top = top + 'px';
+    el.style.height = height + 'px';
+    el.style.left = `calc(${GUTTER_W}px + ${task.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
+    el.style.width = `calc((100% - ${GUTTER_W}px) / 7 - 4px)`;
+
+    setupTaskDrag(el, task, grid);
+    setupTaskResize(el, task, grid);
+
+    el.querySelector('.block-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      deleteTask(task.id);
+    });
+
+    el.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      openEditModal(task);
+    });
+
+    grid.appendChild(el);
+  });
+
+  // Click on empty cell to add
+  grid.querySelectorAll('.time-cell').forEach(cell => {
+    cell.addEventListener('click', e => {
+      if (e.target !== cell) return;
+      const slot = parseInt(cell.dataset.slot);
+      const day = parseInt(cell.dataset.day);
+      openQuickAddAtSlot(slot, day, 'task');
+    });
+  });
+}
+
+function createTaskBlockEl(task) {
+  const color = getCatColor(task.category);
+  const el = document.createElement('div');
+  el.className = 'task-block' + (task.passive ? ' passive' : '');
+  el.dataset.id = task.id;
+  el.style.background = hexToRgba(color, task.passive ? 0.18 : 0.25);
+  el.style.borderLeftColor = color;
+  el.style.borderTop = `1px solid ${hexToRgba(color, 0.4)}`;
+  el.style.borderRight = `1px solid ${hexToRgba(color, 0.2)}`;
+  el.style.borderBottom = `1px solid ${hexToRgba(color, 0.2)}`;
+
+  const dur = (task.endSlot - task.startSlot) * 15;
+  el.innerHTML = `
+    <button class="block-delete" title="Remove">×</button>
+    <div class="block-title">${escHtml(task.name)}</div>
+    ${dur > 30 ? `<div class="block-time">${slotToTime(task.startSlot)}–${slotToTime(task.endSlot)}</div>` : ''}
+    ${dur > 45 ? `<div class="block-cat">${getCatName(task.category)}</div>` : ''}
+    ${task.passive && dur > 30 ? `<div class="block-passive-badge">PASSIVE</div>` : ''}
+    <div class="resize-handle"></div>
+  `;
+  return el;
+}
+
+// ─── OVEN RENDERER ───────────────────────────────────────────────────────
+function renderOven() {
+  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
+  const conflicts = getOvenConflictIds();
+  document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
+}
+
+function renderOvenBlocks(grid) {
+  const HEADER_H = 40;
+  const GUTTER_W = 52;
+  const conflictIds = getOvenConflictIds();
+
+  state.ovenBlocks.forEach(block => {
+    const el = document.createElement('div');
+    el.className = 'oven-block' + (conflictIds.has(block.id) ? ' conflict' : '');
+    el.dataset.id = block.id;
+
+    const top = HEADER_H + slotToY(block.startSlot);
+    const height = Math.max(18, slotToY(block.endSlot - block.startSlot));
+    el.style.position = 'absolute';
+    el.style.top = top + 'px';
+    el.style.height = height + 'px';
+    el.style.left = `calc(${GUTTER_W}px + ${block.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
+    el.style.width = `calc((100% - ${GUTTER_W}px) / 7 - 4px)`;
+
+    const dur = (block.endSlot - block.startSlot) * 15;
+    el.innerHTML = `
+      <button class="block-delete" title="Remove">×</button>
+      ${conflictIds.has(block.id) ? `<div class="conflict-badge">⚠ CONFLICT</div>` : ''}
+      <div class="block-title">${escHtml(block.name)}</div>
+      ${dur > 30 ? `<div class="block-time">${slotToTime(block.startSlot)}–${slotToTime(block.endSlot)}</div>` : ''}
+      ${block.temp && dur > 30 ? `<div class="block-temp">${block.temp}°F</div>` : ''}
+      <div class="resize-handle"></div>
+    `;
+
+    setupOvenDrag(el, block, grid);
+    setupOvenResize(el, block, grid);
+
+    el.querySelector('.block-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      deleteOvenBlock(block.id);
+    });
+
+    el.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      openEditOvenModal(block);
+    });
+
+    grid.appendChild(el);
+  });
+
+  // Click on empty cell
+  grid.querySelectorAll('.time-cell').forEach(cell => {
+    cell.addEventListener('click', e => {
+      if (e.target !== cell) return;
+      const slot = parseInt(cell.dataset.slot);
+      const day = parseInt(cell.dataset.day);
+      openQuickAddAtSlot(slot, day, 'oven');
+    });
+  });
+}
+
+// ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
+function setupTaskDrag(el, task, grid) {
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('resize-handle') ||
+        e.target.classList.contains('block-delete')) return;
+    e.preventDefault();
+
+    const rect = grid.getBoundingClientRect();
+    const GUTTER_W = 52;
+    const colW = (rect.width - GUTTER_W) / 7;
+    const startY = e.clientY;
+    const startX = e.clientX;
+    const origTop = slotToY(task.startSlot);
+    const origDay = task.day;
+    const duration = task.endSlot - task.startSlot;
+
+    el.classList.add('dragging');
+
+    function onMove(me) {
+      const dy = me.clientY - startY;
+      const dx = me.clientX - startX;
+      const newSlot = Math.max(0, Math.min(TOTAL_SLOTS - duration, yToSlot(origTop + dy)));
+      const dayDelta = Math.round(dx / colW);
+      const newDay = Math.max(0, Math.min(6, origDay + dayDelta));
+
+      task.startSlot = newSlot;
+      task.endSlot = newSlot + duration;
+      task.day = newDay;
+
+      const HEADER_H = 40;
+      el.style.top = (HEADER_H + slotToY(task.startSlot)) + 'px';
+      el.style.left = `calc(${GUTTER_W}px + ${task.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
+    }
+
+    function onUp() {
+      el.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      saveState();
+      renderSchedule();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupTaskResize(el, task, grid) {
+  const handle = el.querySelector('.resize-handle');
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const origEnd = task.endSlot;
+
+    function onMove(me) {
+      const dy = me.clientY - startY;
+      const newEnd = Math.max(task.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
+      task.endSlot = newEnd;
+      const HEADER_H = 40;
+      el.style.height = Math.max(18, slotToY(task.endSlot - task.startSlot)) + 'px';
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      saveState();
+      renderSchedule();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ─── DRAG & DROP — OVEN ──────────────────────────────────────────────────
+function setupOvenDrag(el, block, grid) {
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('resize-handle') ||
+        e.target.classList.contains('block-delete')) return;
+    e.preventDefault();
+
+    const rect = grid.getBoundingClientRect();
+    const GUTTER_W = 52;
+    const colW = (rect.width - GUTTER_W) / 7;
+    const startY = e.clientY;
+    const startX = e.clientX;
+    const origTop = slotToY(block.startSlot);
+    const origDay = block.day;
+    const duration = block.endSlot - block.startSlot;
+
+    el.classList.add('dragging');
+
+    function onMove(me) {
+      const dy = me.clientY - startY;
+      const dx = me.clientX - startX;
+      const newSlot = Math.max(0, Math.min(TOTAL_SLOTS - duration, yToSlot(origTop + dy)));
+      const dayDelta = Math.round(dx / colW);
+      const newDay = Math.max(0, Math.min(6, origDay + dayDelta));
+
+      block.startSlot = newSlot;
+      block.endSlot = newSlot + duration;
+      block.day = newDay;
+
+      const HEADER_H = 40;
+      el.style.top = (HEADER_H + slotToY(block.startSlot)) + 'px';
+      el.style.left = `calc(${GUTTER_W}px + ${block.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
+    }
+
+    function onUp() {
+      el.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (hasOvenConflict()) {
+        toast('⚠ Oven conflict detected — blocks overlap', 'error');
+      }
+      saveState();
+      renderOven();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupOvenResize(el, block, grid) {
+  const handle = el.querySelector('.resize-handle');
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const origEnd = block.endSlot;
+
+    function onMove(me) {
+      const dy = me.clientY - startY;
+      const newEnd = Math.max(block.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
+      block.endSlot = newEnd;
+      const HEADER_H = 40;
+      el.style.height = Math.max(18, slotToY(block.endSlot - block.startSlot)) + 'px';
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (hasOvenConflict()) {
+        toast('⚠ Oven conflict detected — blocks overlap', 'error');
+      }
+      saveState();
+      renderOven();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ─── CRUD ────────────────────────────────────────────────────────────────
+function addTask(data) {
+  const task = {
+    id: uid(),
+    name: data.name || 'Untitled',
+    category: data.category || 'custom',
+    day: data.day ?? 0,
+    startSlot: data.startSlot ?? 24,
+    endSlot: data.endSlot ?? 28,
+    passive: data.passive ?? false,
+    notes: data.notes || '',
+  };
+  state.tasks.push(task);
+  saveState();
+  renderSchedule();
+  toast(`Added: ${task.name}`);
+}
+
+function deleteTask(id) {
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  saveState();
+  renderSchedule();
+  toast('Block removed');
+}
+
+function addOvenBlock(data) {
+  const block = {
+    id: uid(),
+    name: data.name || 'Oven',
+    category: data.category || 'custom',
+    day: data.day ?? 0,
+    startSlot: data.startSlot ?? 24,
+    endSlot: data.endSlot ?? 28,
+    temp: data.temp || '',
+    notes: data.notes || '',
+  };
+  state.ovenBlocks.push(block);
+  saveState();
+  if (hasOvenConflict()) {
+    toast('⚠ Oven conflict — fix before baking', 'error');
+  } else {
+    toast(`Oven: ${block.name} scheduled`);
+  }
+  renderOven();
+}
+
+function deleteOvenBlock(id) {
+  state.ovenBlocks = state.ovenBlocks.filter(b => b.id !== id);
+  saveState();
+  renderOven();
+  toast('Oven block removed');
+}
+
+// ─── QUICK ADD AT SLOT ───────────────────────────────────────────────────
+function openQuickAddAtSlot(slot, day, type) {
+  if (type === 'task') {
+    state.selectedDayQA = day;
+    document.getElementById('qa-start').value = slotToTime(slot);
+    document.getElementById('qa-end').value = slotToTime(Math.min(TOTAL_SLOTS, slot + 4));
+    updateDaySelector('qa-day-selector', day);
+    // Scroll sidebar to quick add
+    document.getElementById('sidebar').scrollTop = 200;
+  } else {
+    state.selectedDayOV = day;
+    document.getElementById('ov-start').value = slotToTime(slot);
+    document.getElementById('ov-end').value = slotToTime(Math.min(TOTAL_SLOTS, slot + 4));
+    updateDaySelector('ov-day-selector', day);
+    document.getElementById('sidebar').scrollTop = 9999;
+  }
+}
+
+// ─── EDIT MODAL ──────────────────────────────────────────────────────────
+function openEditModal(task) {
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-title').textContent = 'Edit Block';
+
+  const catOptions = CATEGORIES.map(c =>
+    `<option value="${c.id}" ${c.id === task.category ? 'selected' : ''}>${c.name}</option>`
+  ).join('');
+
+  const dayOptions = DAYS.map((d, i) =>
+    `<option value="${i}" ${i === task.day ? 'selected' : ''}>${d}</option>`
+  ).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="add-form">
+      <div class="form-row">
+        <div class="form-label">Task Name</div>
+        <input class="form-input" id="edit-name" value="${escHtml(task.name)}" />
+      </div>
+      <div class="form-row">
+        <div class="form-label">Category</div>
+        <select class="form-select" id="edit-cat">${catOptions}</select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Day</div>
+        <select class="form-select" id="edit-day">${dayOptions}</select>
+      </div>
+      <div class="time-row">
+        <div class="form-row">
+          <div class="form-label">Start</div>
+          <input class="form-input" id="edit-start" type="time" value="${slotToTime(task.startSlot)}" />
+        </div>
+        <div class="form-row">
+          <div class="form-label">End</div>
+          <input class="form-input" id="edit-end" type="time" value="${slotToTime(task.endSlot)}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Notes</div>
+        <textarea class="form-textarea" id="edit-notes">${escHtml(task.notes || '')}</textarea>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Passive / Waiting</div>
+          <div class="toggle-sub">Can overlap other tasks</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="edit-passive" ${task.passive ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-actions').innerHTML = `
+    <button class="btn danger" id="modal-delete">Delete</button>
+    <button class="btn" id="modal-cancel">Cancel</button>
+    <button class="btn primary" id="modal-save">Save</button>
+  `;
+
+  overlay.classList.add('open');
+
+  document.getElementById('modal-save').onclick = () => {
+    task.name = document.getElementById('edit-name').value.trim() || task.name;
+    task.category = document.getElementById('edit-cat').value;
+    task.day = parseInt(document.getElementById('edit-day').value);
+    task.startSlot = timeToSlot(document.getElementById('edit-start').value);
+    task.endSlot = timeToSlot(document.getElementById('edit-end').value);
+    task.notes = document.getElementById('edit-notes').value;
+    task.passive = document.getElementById('edit-passive').checked;
+    if (task.endSlot <= task.startSlot) task.endSlot = task.startSlot + 1;
+    saveState();
+    renderSchedule();
+    overlay.classList.remove('open');
+    toast('Block updated');
+  };
+
+  document.getElementById('modal-delete').onclick = () => {
+    deleteTask(task.id);
+    overlay.classList.remove('open');
+  };
+
+  document.getElementById('modal-cancel').onclick = () => overlay.classList.remove('open');
+}
+
+function openEditOvenModal(block) {
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-title').textContent = 'Edit Oven Block';
+
+  const catOptions = CATEGORIES.map(c =>
+    `<option value="${c.id}" ${c.id === block.category ? 'selected' : ''}>${c.name}</option>`
+  ).join('');
+
+  const dayOptions = DAYS.map((d, i) =>
+    `<option value="${i}" ${i === block.day ? 'selected' : ''}>${d}</option>`
+  ).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="add-form">
+      <div class="form-row">
+        <div class="form-label">Item</div>
+        <input class="form-input" id="edit-ov-name" value="${escHtml(block.name)}" />
+      </div>
+      <div class="form-row">
+        <div class="form-label">Category</div>
+        <select class="form-select" id="edit-ov-cat">${catOptions}</select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Day</div>
+        <select class="form-select" id="edit-ov-day">${dayOptions}</select>
+      </div>
+      <div class="time-row">
+        <div class="form-row">
+          <div class="form-label">Start</div>
+          <input class="form-input" id="edit-ov-start" type="time" value="${slotToTime(block.startSlot)}" />
+        </div>
+        <div class="form-row">
+          <div class="form-label">End</div>
+          <input class="form-input" id="edit-ov-end" type="time" value="${slotToTime(block.endSlot)}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Temp (°F)</div>
+        <input class="form-input" id="edit-ov-temp" type="number" value="${block.temp || ''}" placeholder="375" />
+      </div>
+      <div class="form-row">
+        <div class="form-label">Notes</div>
+        <textarea class="form-textarea" id="edit-ov-notes">${escHtml(block.notes || '')}</textarea>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal-actions').innerHTML = `
+    <button class="btn danger" id="modal-ov-delete">Delete</button>
+    <button class="btn" id="modal-ov-cancel">Cancel</button>
+    <button class="btn primary" id="modal-ov-save">Save</button>
+  `;
+
+  overlay.classList.add('open');
+
+  document.getElementById('modal-ov-save').onclick = () => {
+    block.name = document.getElementById('edit-ov-name').value.trim() || block.name;
+    block.category = document.getElementById('edit-ov-cat').value;
+    block.day = parseInt(document.getElementById('edit-ov-day').value);
+    block.startSlot = timeToSlot(document.getElementById('edit-ov-start').value);
+    block.endSlot = timeToSlot(document.getElementById('edit-ov-end').value);
+    block.temp = document.getElementById('edit-ov-temp').value;
+    block.notes = document.getElementById('edit-ov-notes').value;
+    if (block.endSlot <= block.startSlot) block.endSlot = block.startSlot + 1;
+    saveState();
+    if (hasOvenConflict()) toast('⚠ Oven conflict detected', 'error');
+    renderOven();
+    overlay.classList.remove('open');
+    toast('Oven block updated');
+  };
+
+  document.getElementById('modal-ov-delete').onclick = () => {
+    deleteOvenBlock(block.id);
+    overlay.classList.remove('open');
+  };
+
+  document.getElementById('modal-ov-cancel').onclick = () => overlay.classList.remove('open');
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────────────────
+function renderAnalytics() {
+  const tasks = state.tasks;
+  const oven = state.ovenBlocks;
+
+  // Stats
+  const totalTaskMin = tasks.reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
+  const totalOvenMin = oven.reduce((s, b) => s + (b.endSlot - b.startSlot) * 15, 0);
+  const activeMin = tasks.filter(t => !t.passive).reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
+  const passiveMin = tasks.filter(t => t.passive).reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
+
+  const statsGrid = document.getElementById('stats-grid');
+  statsGrid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-label">Total Scheduled</div>
+      <div class="stat-card-value">${Math.round(totalTaskMin / 60 * 10) / 10}h</div>
+      <div class="stat-card-sub">${tasks.length} task blocks this week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Active Hands-On</div>
+      <div class="stat-card-value">${Math.round(activeMin / 60 * 10) / 10}h</div>
+      <div class="stat-card-sub">Direct craft time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Passive / Waiting</div>
+      <div class="stat-card-value">${Math.round(passiveMin / 60 * 10) / 10}h</div>
+      <div class="stat-card-sub">Proofing, resting, cooling</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Oven Time</div>
+      <div class="stat-card-value">${Math.round(totalOvenMin / 60 * 10) / 10}h</div>
+      <div class="stat-card-sub">${oven.length} bake sessions · ${hasOvenConflict() ? '⚠ conflicts' : 'no conflicts'}</div>
+    </div>
+  `;
+
+  // Category chart
+  const catTotals = {};
+  CATEGORIES.forEach(c => catTotals[c.id] = 0);
+  tasks.forEach(t => {
+    catTotals[t.category] = (catTotals[t.category] || 0) + (t.endSlot - t.startSlot) * 15;
+  });
+  oven.forEach(b => {
+    catTotals[b.category] = (catTotals[b.category] || 0) + (b.endSlot - b.startSlot) * 15;
+  });
+
+  const maxCat = Math.max(1, ...Object.values(catTotals));
+  const catChart = document.getElementById('category-chart');
+  catChart.innerHTML = CATEGORIES.map(c => {
+    const min = catTotals[c.id] || 0;
+    if (min === 0) return '';
+    const pct = (min / maxCat * 100).toFixed(1);
+    const hrs = (min / 60).toFixed(1);
+    return `
+      <div class="chart-bar-row">
+        <div class="chart-bar-label">${c.name}</div>
+        <div class="chart-bar-track">
+          <div class="chart-bar-fill" style="width:${pct}%;background:${c.color}"></div>
+        </div>
+        <div class="chart-bar-val">${hrs}h</div>
+      </div>
+    `;
+  }).join('') || '<div style="color:var(--echt-tan);font-size:12px;text-align:center;padding:16px">No data yet — add some blocks to see your breakdown.</div>';
+
+  // Oven utilization by day
+  const ovenByDay = Array(7).fill(0);
+  oven.forEach(b => {
+    ovenByDay[b.day] += (b.endSlot - b.startSlot) * 15;
+  });
+  const maxOven = Math.max(1, ...ovenByDay);
+  const ovenChart = document.getElementById('oven-chart');
+  ovenChart.innerHTML = DAYS.map((d, i) => {
+    const min = ovenByDay[i];
+    const pct = (min / maxOven * 100).toFixed(1);
+    const hrs = (min / 60).toFixed(1);
+    return `
+      <div class="chart-bar-row">
+        <div class="chart-bar-label">${d}</div>
+        <div class="chart-bar-track">
+          <div class="chart-bar-fill" style="width:${pct}%;background:var(--echt-ember)"></div>
+        </div>
+        <div class="chart-bar-val">${hrs}h</div>
+      </div>
+    `;
+  }).join('');
+
+  // Insights
+  const insights = generateInsights(tasks, oven, catTotals, ovenByDay);
+  document.getElementById('insights-container').innerHTML = insights.map(ins => `
+    <div class="insight-card">
+      <div class="insight-title">${ins.title}</div>
+      <div class="insight-text">${ins.text}</div>
+    </div>
+  `).join('') || '<div style="color:var(--echt-tan);font-size:12px;padding:8px">Add more blocks to generate insights.</div>';
+}
+
+function generateInsights(tasks, oven, catTotals, ovenByDay) {
+  const insights = [];
+
+  // Oven conflicts
+  if (hasOvenConflict()) {
+    insights.push({
+      title: '🔥 Oven Conflict',
+      text: 'Two or more oven blocks overlap. The oven can only run one thing at a time — stagger your bake times or adjust temperatures to batch items together.'
+    });
+  }
+
+  // Busiest oven day
+  const busiestOvenDay = ovenByDay.indexOf(Math.max(...ovenByDay));
+  if (ovenByDay[busiestOvenDay] > 0) {
+    insights.push({
+      title: `Peak Oven Day — ${DAYS[busiestOvenDay]}`,
+      text: `${DAYS[busiestOvenDay]} carries ${(ovenByDay[busiestOvenDay]/60).toFixed(1)}h of oven time. Consider whether prep tasks on that day are sequenced to keep the oven continuously loaded.`
+    });
+  }
+
+  // Passive ratio
+  const totalMin = tasks.reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
+  const passiveMin = tasks.filter(t => t.passive).reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
+  if (totalMin > 0) {
+    const ratio = passiveMin / totalMin;
+    if (ratio > 0.5) {
+      insights.push({
+        title: 'High Passive Time',
+        text: `${Math.round(ratio * 100)}% of your scheduled time is passive (proofing, resting, cooling). That's good — it means you have room to stack active tasks during those windows. Check for gaps where the oven could be running.`
+      });
+    } else if (ratio < 0.2 && totalMin > 120) {
+      insights.push({
+        title: 'Dense Active Schedule',
+        text: `Only ${Math.round(ratio * 100)}% of your time is passive. Your schedule is hands-on heavy — make sure you're accounting for dough rest times and cooling windows.`
+      });
+    }
+  }
+
+  // Top category
+  const topCat = Object.entries(catTotals).sort((a,b) => b[1]-a[1])[0];
+  if (topCat && topCat[1] > 0) {
+    const catName = getCatName(topCat[0]);
+    insights.push({
+      title: `Leading Product — ${catName}`,
+      text: `${catName} takes up the most scheduled time this week at ${(topCat[1]/60).toFixed(1)}h. If this is your highest-margin item, that's intentional craft. If not, consider whether the time investment matches your production goals.`
+    });
+  }
+
+  // Empty days
+  const taskDays = new Set(tasks.map(t => t.day));
+  const emptyDays = DAYS.filter((_, i) => !taskDays.has(i));
+  if (emptyDays.length > 0 && emptyDays.length < 7) {
+    insights.push({
+      title: 'Rest Days',
+      text: `${emptyDays.join(', ')} ${emptyDays.length === 1 ? 'has' : 'have'} no scheduled tasks. Good craft requires recovery — but if these are production days, check your schedule.`
+    });
+  }
+
+  // Oven gaps
+  const ovenDays = new Set(oven.map(b => b.day));
+  const taskDaysArr = [...taskDays];
+  const taskDaysWithoutOven = taskDaysArr.filter(d => !ovenDays.has(d));
+  if (taskDaysWithoutOven.length > 0) {
+    insights.push({
+      title: 'Prep Days Without Oven',
+      text: `${taskDaysWithoutOven.map(d => DAYS[d]).join(', ')} ${taskDaysWithoutOven.length === 1 ? 'has' : 'have'} prep tasks but no oven blocks. This may be intentional (cold prep, lamination days) — or a scheduling gap worth reviewing.`
+    });
+  }
+
+  return insights;
+}
+
+// ─── SIDEBAR SETUP ───────────────────────────────────────────────────────
+function buildCategoryList() {
+  const list = document.getElementById('category-list');
+  list.innerHTML = CATEGORIES.map(c => `
+    <div class="category-item" data-cat="${c.id}">
+      <div class="cat-dot" style="background:${c.color}"></div>
+      <div class="cat-name">${c.name}</div>
+      <div class="cat-count" id="cat-count-${c.id}">0</div>
+    </div>
+  `).join('');
+}
+
+function updateCategoryCounts() {
+  CATEGORIES.forEach(c => {
+    const count = state.tasks.filter(t => t.category === c.id).length
+                + state.ovenBlocks.filter(b => b.category === c.id).length;
+    const el = document.getElementById(`cat-count-${c.id}`);
+    if (el) el.textContent = count || '';
+  });
+}
+
+function buildCategorySelects() {
+  const opts = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('qa-category').innerHTML = opts;
+  document.getElementById('ov-category').innerHTML = opts;
+}
+
+function buildDaySelectors() {
+  buildDaySelector('qa-day-selector', 0, day => { state.selectedDayQA = day; });
+  buildDaySelector('ov-day-selector', 0, day => { state.selectedDayOV = day; });
+}
+
+function buildDaySelector(containerId, defaultDay, onChange) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = DAYS.map((d, i) => `
+    <div class="day-btn ${i === defaultDay ? 'selected' : ''}" data-day="${i}">${d}</div>
+  `).join('');
+
+  container.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      onChange(parseInt(btn.dataset.day));
+    });
+  });
+}
+
+function updateDaySelector(containerId, day) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.day-btn').forEach(btn => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.day) === day);
+  });
+}
+
+// ─── QUICK ADD HANDLERS ──────────────────────────────────────────────────
+function setupQuickAdd() {
+  document.getElementById('qa-submit').addEventListener('click', () => {
+    const name = document.getElementById('qa-name').value.trim();
+    if (!name) { toast('Give it a name', 'error'); return; }
+    const start = timeToSlot(document.getElementById('qa-start').value);
+    const end = timeToSlot(document.getElementById('qa-end').value);
+    if (end <= start) { toast('End must be after start', 'error'); return; }
+
+    addTask({
+      name,
+      category: document.getElementById('qa-category').value,
+      day: state.selectedDayQA,
+      startSlot: start,
+      endSlot: end,
+      passive: document.getElementById('qa-passive').checked,
+      notes: document.getElementById('qa-notes').value,
+    });
+
+    document.getElementById('qa-name').value = '';
+    document.getElementById('qa-notes').value = '';
+    document.getElementById('qa-passive').checked = false;
+  });
+
+  document.getElementById('ov-submit').addEventListener('click', () => {
+    const name = document.getElementById('ov-name').value.trim();
+    if (!name) { toast('Name the oven block', 'error'); return; }
+    const start = timeToSlot(document.getElementById('ov-start').value);
+    const end = timeToSlot(document.getElementById('ov-end').value);
+    if (end <= start) { toast('End must be after start', 'error'); return; }
+
+    addOvenBlock({
+      name,
+      category: document.getElementById('ov-category').value,
+      day: state.selectedDayOV,
+      startSlot: start,
+      endSlot: end,
+      temp: document.getElementById('ov-temp').value,
+      notes: document.getElementById('ov-notes').value,
+    });
+
+    document.getElementById('ov-name').value = '';
+    document.getElementById('ov-notes').value = '';
+    document.getElementById('ov-temp').value = '';
+  });
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.activeTab = tab.dataset.tab;
+
+      document.getElementById('schedule-view').classList.toggle('hidden', state.activeTab !== 'schedule');
+      document.getElementById('oven-view').classList.toggle('hidden', state.activeTab !== 'oven');
+      document.getElementById('analytics-view').classList.toggle('active', state.activeTab === 'analytics');
+
+      if (state.activeTab === 'analytics') renderAnalytics();
+      if (state.activeTab === 'oven') renderOven();
+    });
+  });
+}
+
+// ─── WEEK NAV ────────────────────────────────────────────────────────────
+function setupWeekNav() {
+  document.getElementById('prev-week').addEventListener('click', () => {
+    state.weekOffset--;
+    updateWeekLabel();
+    renderSchedule();
+    if (state.activeTab === 'oven') renderOven();
+  });
+
+  document.getElementById('next-week').addEventListener('click', () => {
+    state.weekOffset++;
+    updateWeekLabel();
+    renderSchedule();
+    if (state.activeTab === 'oven') renderOven();
+  });
+
+  document.getElementById('today-btn').addEventListener('click', () => {
+    state.weekOffset = 0;
+    updateWeekLabel();
+    renderSchedule();
+    if (state.activeTab === 'oven') renderOven();
+  });
+}
+
+function updateWeekLabel() {
+  const dates = getWeekDates();
+  document.getElementById('week-label').textContent = formatWeekLabel(dates);
+}
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────────────────
+function setupExportImport() {
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const data = {
+      version: 2,
+      exported: new Date().toISOString(),
+      tasks: state.tasks,
+      ovenBlocks: state.ovenBlocks,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `echt-bakery-schedule-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Schedule exported');
+  });
+
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-file-input').click();
+  });
+
+  document.getElementById('import-file-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.tasks) state.tasks = data.tasks;
+        if (data.ovenBlocks) state.ovenBlocks = data.ovenBlocks;
+        saveState();
+        renderSchedule();
+        if (state.activeTab === 'oven') renderOven();
+        toast('Schedule imported');
+      } catch(err) {
+        toast('Import failed — invalid file', 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+}
+
+// ─── MODAL OVERLAY CLOSE ─────────────────────────────────────────────────
+function setupModal() {
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) {
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
+  });
+}
+
+// ─── ADD BLOCK BUTTON ────────────────────────────────────────────────────
+function setupAddBlockBtn() {
+  document.getElementById('add-block-btn').addEventListener('click', () => {
+    // Scroll sidebar to quick add and focus name
+    document.getElementById('sidebar').scrollTop = 200;
+    document.getElementById('qa-name').focus();
+  });
+}
+
+// ─── SCROLL TO CURRENT TIME ──────────────────────────────────────────────
+function scrollToCurrentTime() {
+  const now = new Date();
+  const slot = (now.getHours() * 60 + now.getMinutes()) / 15;
+  const y = Math.max(0, slotToY(slot) - 100);
+  document.getElementById('schedule-grid-container').scrollTop = y;
+  document.getElementById('oven-grid-container').scrollTop = y;
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── SEED DATA (first run) ───────────────────────────────────────────────
+function seedData() {
+  if (state.tasks.length > 0 || state.ovenBlocks.length > 0) return;
+
+  // Sample croissant day (Monday)
+  state.tasks.push(
+    { id: uid(), name: 'Mix détrempe', category: 'croissant', day: 0, startSlot: 16, endSlot: 20, passive: false, notes: 'Butter block ready' },
+    { id: uid(), name: 'Overnight cold rest', category: 'croissant', day: 0, startSlot: 20, endSlot: 96, passive: true, notes: 'Fridge, covered' },
+    { id: uid(), name: 'Laminate — 3 folds', category: 'croissant', day: 1, startSlot: 16, endSlot: 28, passive: false, notes: '27 layers' },
+    { id: uid(), name: 'Shape & proof', category: 'croissant', day: 1, startSlot: 28, endSlot: 60, passive: true, notes: '75°F, 80% humidity' },
+    { id: uid(), name: 'Mix bagel dough', category: 'bagels', day: 1, startSlot: 32, endSlot: 40, passive: false, notes: 'High-gluten flour' },
+    { id: uid(), name: 'Bagel cold retard', category: 'bagels', day: 1, startSlot: 40, endSlot: 96, passive: true, notes: 'Overnight fridge' },
+    { id: uid(), name: 'Boil & top bagels', category: 'bagels', day: 2, startSlot: 20, endSlot: 28, passive: false, notes: 'Malt syrup water' },
+    { id: uid(), name: 'Mix cinnamon roll dough', category: 'cinnamon', day: 2, startSlot: 24, endSlot: 32, passive: false, notes: 'Enriched, 65% hydration' },
+    { id: uid(), name: 'Cinnamon roll proof', category: 'cinnamon', day: 2, startSlot: 32, endSlot: 56, passive: true, notes: 'Doubled in size' },
+  );
+
+  state.ovenBlocks.push(
+    { id: uid(), name: 'Croissants', category: 'croissant', day: 1, startSlot: 60, endSlot: 72, temp: 400, notes: 'Steam first 8 min' },
+    { id: uid(), name: 'Bagels', category: 'bagels', day: 2, startSlot: 28, endSlot: 40, temp: 450, notes: 'Convection, rotate halfway' },
+    { id: uid(), name: 'Cinnamon Rolls', category: 'cinnamon', day: 2, startSlot: 56, endSlot: 68, temp: 350, notes: 'Cover with foil last 10 min' },
+  );
+
+  saveState();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────
+function init() {
+  loadState();
+  seedData();
+
+  buildCategoryList();
+  buildCategorySelects();
+  buildDaySelectors();
+  setupQuickAdd();
+  setupTabs();
+  setupWeekNav();
+  setupExportImport();
+  setupModal();
+  setupAddBlockBtn();
+
+  updateWeekLabel();
+  renderSchedule();
+
+  // Auto-scroll to 5am
+  setTimeout(() => {
+    const fiveAM = 5 * 4 * SLOT_HEIGHT;
+    document.getElementById('schedule-grid-container').scrollTop = fiveAM;
+    document.getElementById('oven-grid-container').scrollTop = fiveAM;
+  }, 100);
+
+  // Refresh now-line every minute
+  setInterval(() => {
+    if (state.activeTab === 'schedule') renderSchedule();
+    if (state.activeTab === 'oven') renderOven();
+  }, 60000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
