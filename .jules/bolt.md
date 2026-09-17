@@ -1,0 +1,3 @@
+## 2026-08-18 - Batching DOM Grid Construction and Day-Partitioned Conflict Checks
+**Learning:** In vanilla JS single-page applications rendering large temporal grids (24h * 4 slots * 7 days = 672 cells + headers), appending DOM nodes directly in loops causes hundreds of layout reflow triggers. Using `DocumentFragment` batches DOM insertions into a single reflow cycle. Additionally, multi-day schedule conflict detection can be reduced from O(N^2) to O(7 * (N/7)^2) by partitioning blocks by day, cutting comparison time dramatically.
+**Action:** Always batch grid DOM rendering with `DocumentFragment` and partition multi-day/multi-column spatial queries by column or day before quadratic overlap checks.
