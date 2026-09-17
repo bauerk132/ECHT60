@@ -1295,11 +1295,22 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// Performance Optimization: Partition blocks by day before pairwise overlap checking.
+// Since blocks on different days never overlap, this reduces checks from O(N^2) to O(sum(N_day^2)), ~7x faster.
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const byDay = {};
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    const d = ob[i].day;
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(ob[i]);
+  }
+  for (const d in byDay) {
+    const list = byDay[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) return true;
+      }
     }
   }
   return false;
@@ -1307,9 +1318,18 @@ function hasOvenConflict() {
 
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
+  const byDay = {};
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    const d = active[i].day;
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(active[i]);
+  }
+  for (const d in byDay) {
+    const list = byDay[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) return true;
+      }
     }
   }
   return false;
@@ -1318,11 +1338,20 @@ function hasScheduleConflict() {
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const byDay = {};
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    const d = ob[i].day;
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(ob[i]);
+  }
+  for (const d in byDay) {
+    const list = byDay[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) {
+          conflicts.add(list[i].id);
+          conflicts.add(list[j].id);
+        }
       }
     }
   }
@@ -1335,16 +1364,20 @@ function buildGrid(containerId, gridId, blockRenderer) {
   const dates = getWeekDates();
   grid.innerHTML = '';
 
+  // Performance Optimization: Use a DocumentFragment to batch DOM insertions (776+ nodes)
+  // into a single reflow/layout pass instead of 776 separate grid.appendChild calls.
+  const fragment = document.createDocumentFragment();
+
   // Header row
   const gutterH = document.createElement('div');
   gutterH.className = 'time-gutter-header';
-  grid.appendChild(gutterH);
+  fragment.appendChild(gutterH);
 
   dates.forEach((date, i) => {
     const dh = document.createElement('div');
     dh.className = 'day-header' + (isToday(date) ? ' today' : '');
     dh.innerHTML = `<div class="day-name">${DAYS[i]}</div><div class="day-date">${date.getDate()}</div>`;
-    grid.appendChild(dh);
+    fragment.appendChild(dh);
   });
 
   // Time rows
@@ -1361,7 +1394,7 @@ function buildGrid(containerId, gridId, blockRenderer) {
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       label.innerHTML = `<span>${h12}${ampm}</span>`;
     }
-    grid.appendChild(label);
+    fragment.appendChild(label);
 
     // Day cells
     for (let day = 0; day < 7; day++) {
@@ -1370,9 +1403,11 @@ function buildGrid(containerId, gridId, blockRenderer) {
       cell.style.height = SLOT_HEIGHT + 'px';
       cell.dataset.slot = slot;
       cell.dataset.day = day;
-      grid.appendChild(cell);
+      fragment.appendChild(cell);
     }
   }
+
+  grid.appendChild(fragment);
 
   // Render blocks as absolute positioned over the grid
   blockRenderer(grid, dates);
