@@ -1472,7 +1472,7 @@ function createTaskBlockEl(task) {
     <button class="block-delete" title="Remove">×</button>
     <div class="block-title">${escHtml(task.name)}</div>
     ${dur > 30 ? `<div class="block-time">${slotToTime(task.startSlot)}–${slotToTime(task.endSlot)}</div>` : ''}
-    ${dur > 45 ? `<div class="block-cat">${getCatName(task.category)}</div>` : ''}
+    ${dur > 45 ? `<div class="block-cat">${escHtml(getCatName(task.category))}</div>` : ''}
     ${task.passive && dur > 30 ? `<div class="block-passive-badge">PASSIVE</div>` : ''}
     <div class="resize-handle"></div>
   `;
