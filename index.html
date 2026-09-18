@@ -1348,6 +1348,7 @@ function buildGrid(containerId, gridId, blockRenderer) {
   });
 
   // Time rows
+  const fragment = document.createDocumentFragment();
   for (let slot = 0; slot < TOTAL_SLOTS; slot++) {
     const isHourStart = slot % SLOTS_PER_HOUR === 0;
 
@@ -1361,7 +1362,7 @@ function buildGrid(containerId, gridId, blockRenderer) {
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       label.innerHTML = `<span>${h12}${ampm}</span>`;
     }
-    grid.appendChild(label);
+    fragment.appendChild(label);
 
     // Day cells
     for (let day = 0; day < 7; day++) {
@@ -1370,9 +1371,10 @@ function buildGrid(containerId, gridId, blockRenderer) {
       cell.style.height = SLOT_HEIGHT + 'px';
       cell.dataset.slot = slot;
       cell.dataset.day = day;
-      grid.appendChild(cell);
+      fragment.appendChild(cell);
     }
   }
+  grid.appendChild(fragment);
 
   // Render blocks as absolute positioned over the grid
   blockRenderer(grid, dates);
