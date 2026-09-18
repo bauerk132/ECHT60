@@ -2112,9 +2112,21 @@ function buildCategoryList() {
 }
 
 function updateCategoryCounts() {
+  const counts = new Map();
+  if (state.tasks) {
+    for (let i = 0; i < state.tasks.length; i++) {
+      const cat = state.tasks[i].category;
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    }
+  }
+  if (state.ovenBlocks) {
+    for (let i = 0; i < state.ovenBlocks.length; i++) {
+      const cat = state.ovenBlocks[i].category;
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    }
+  }
   CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
+    const count = counts.get(c.id) || 0;
     const el = document.getElementById(`cat-count-${c.id}`);
     if (el) el.textContent = count || '';
   });
