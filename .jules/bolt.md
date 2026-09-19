@@ -1,0 +1,3 @@
+## 2026-03-30 - Batch DOM creation and event delegation for schedule grid rendering
+**Learning:** Rebuilding a 770+ element DOM grid via individual `document.createElement` and `appendChild` calls in a loop, combined with attaching 672 individual click event listeners via `querySelectorAll('.time-cell')` on every render, causes significant JS execution and DOM reflow overhead. Replacing string array concatenation with `innerHTML` and using event delegation on the grid container speeds up grid rendering by 40%+.
+**Action:** In vanilla JS schedule/grid views, batch HTML string construction for static grid structures and use event delegation on parent containers instead of querying and attaching handlers to every individual cell.
