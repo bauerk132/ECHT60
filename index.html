@@ -1429,8 +1429,13 @@ function renderTaskBlocks(grid) {
     el.style.left = `calc(${GUTTER_W}px + ${task.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
     el.style.width = `calc((100% - ${GUTTER_W}px) / 7 - 4px)`;
 
-    setupTaskDrag(el, task, grid);
-    setupTaskResize(el, task, grid);
+    const onTaskDrop = () => {
+      saveState();
+      renderSchedule();
+    };
+
+    setupBlockDrag(el, task, grid, onTaskDrop);
+    setupBlockResize(el, task, grid, onTaskDrop);
 
     el.querySelector('.block-delete').addEventListener('click', e => {
       e.stopPropagation();
@@ -1514,8 +1519,16 @@ function renderOvenBlocks(grid) {
       <div class="resize-handle"></div>
     `;
 
-    setupOvenDrag(el, block, grid);
-    setupOvenResize(el, block, grid);
+    const onOvenDrop = () => {
+      if (hasOvenConflict()) {
+        toast('⚠ Oven conflict detected — blocks overlap', 'error');
+      }
+      saveState();
+      renderOven();
+    };
+
+    setupBlockDrag(el, block, grid, onOvenDrop);
+    setupBlockResize(el, block, grid, onOvenDrop);
 
     el.querySelector('.block-delete').addEventListener('click', e => {
       e.stopPropagation();
@@ -1541,8 +1554,8 @@ function renderOvenBlocks(grid) {
   });
 }
 
-// ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
-function setupTaskDrag(el, task, grid) {
+// ─── DRAG & DROP ─────────────────────────────────────────────────────────
+function setupBlockDrag(el, item, grid, onDrop) {
   el.addEventListener('mousedown', e => {
     if (e.target.classList.contains('resize-handle') ||
         e.target.classList.contains('block-delete')) return;
@@ -1553,9 +1566,9 @@ function setupTaskDrag(el, task, grid) {
     const colW = (rect.width - GUTTER_W) / 7;
     const startY = e.clientY;
     const startX = e.clientX;
-    const origTop = slotToY(task.startSlot);
-    const origDay = task.day;
-    const duration = task.endSlot - task.startSlot;
+    const origTop = slotToY(item.startSlot);
+    const origDay = item.day;
+    const duration = item.endSlot - item.startSlot;
 
     el.classList.add('dragging');
 
@@ -1566,21 +1579,20 @@ function setupTaskDrag(el, task, grid) {
       const dayDelta = Math.round(dx / colW);
       const newDay = Math.max(0, Math.min(6, origDay + dayDelta));
 
-      task.startSlot = newSlot;
-      task.endSlot = newSlot + duration;
-      task.day = newDay;
+      item.startSlot = newSlot;
+      item.endSlot = newSlot + duration;
+      item.day = newDay;
 
       const HEADER_H = 40;
-      el.style.top = (HEADER_H + slotToY(task.startSlot)) + 'px';
-      el.style.left = `calc(${GUTTER_W}px + ${task.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
+      el.style.top = (HEADER_H + slotToY(item.startSlot)) + 'px';
+      el.style.left = `calc(${GUTTER_W}px + ${item.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
     }
 
     function onUp() {
       el.classList.remove('dragging');
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      saveState();
-      renderSchedule();
+      if (onDrop) onDrop();
     }
 
     document.addEventListener('mousemove', onMove);
@@ -1588,108 +1600,26 @@ function setupTaskDrag(el, task, grid) {
   });
 }
 
-function setupTaskResize(el, task, grid) {
+function setupBlockResize(el, item, grid, onDrop) {
   const handle = el.querySelector('.resize-handle');
   handle.addEventListener('mousedown', e => {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const origEnd = task.endSlot;
+    const origEnd = item.endSlot;
 
     function onMove(me) {
       const dy = me.clientY - startY;
-      const newEnd = Math.max(task.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
-      task.endSlot = newEnd;
+      const newEnd = Math.max(item.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
+      item.endSlot = newEnd;
       const HEADER_H = 40;
-      el.style.height = Math.max(18, slotToY(task.endSlot - task.startSlot)) + 'px';
+      el.style.height = Math.max(18, slotToY(item.endSlot - item.startSlot)) + 'px';
     }
 
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      saveState();
-      renderSchedule();
-    }
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
-// ─── DRAG & DROP — OVEN ──────────────────────────────────────────────────
-function setupOvenDrag(el, block, grid) {
-  el.addEventListener('mousedown', e => {
-    if (e.target.classList.contains('resize-handle') ||
-        e.target.classList.contains('block-delete')) return;
-    e.preventDefault();
-
-    const rect = grid.getBoundingClientRect();
-    const GUTTER_W = 52;
-    const colW = (rect.width - GUTTER_W) / 7;
-    const startY = e.clientY;
-    const startX = e.clientX;
-    const origTop = slotToY(block.startSlot);
-    const origDay = block.day;
-    const duration = block.endSlot - block.startSlot;
-
-    el.classList.add('dragging');
-
-    function onMove(me) {
-      const dy = me.clientY - startY;
-      const dx = me.clientX - startX;
-      const newSlot = Math.max(0, Math.min(TOTAL_SLOTS - duration, yToSlot(origTop + dy)));
-      const dayDelta = Math.round(dx / colW);
-      const newDay = Math.max(0, Math.min(6, origDay + dayDelta));
-
-      block.startSlot = newSlot;
-      block.endSlot = newSlot + duration;
-      block.day = newDay;
-
-      const HEADER_H = 40;
-      el.style.top = (HEADER_H + slotToY(block.startSlot)) + 'px';
-      el.style.left = `calc(${GUTTER_W}px + ${block.day} * (100% - ${GUTTER_W}px) / 7 + 2px)`;
-    }
-
-    function onUp() {
-      el.classList.remove('dragging');
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (hasOvenConflict()) {
-        toast('⚠ Oven conflict detected — blocks overlap', 'error');
-      }
-      saveState();
-      renderOven();
-    }
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
-function setupOvenResize(el, block, grid) {
-  const handle = el.querySelector('.resize-handle');
-  handle.addEventListener('mousedown', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startY = e.clientY;
-    const origEnd = block.endSlot;
-
-    function onMove(me) {
-      const dy = me.clientY - startY;
-      const newEnd = Math.max(block.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
-      block.endSlot = newEnd;
-      const HEADER_H = 40;
-      el.style.height = Math.max(18, slotToY(block.endSlot - block.startSlot)) + 'px';
-    }
-
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (hasOvenConflict()) {
-        toast('⚠ Oven conflict detected — blocks overlap', 'error');
-      }
-      saveState();
-      renderOven();
+      if (onDrop) onDrop();
     }
 
     document.addEventListener('mousemove', onMove);
