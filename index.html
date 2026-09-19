@@ -1430,7 +1430,7 @@ function renderTaskBlocks(grid) {
     el.style.width = `calc((100% - ${GUTTER_W}px) / 7 - 4px)`;
 
     setupTaskDrag(el, task, grid);
-    setupTaskResize(el, task, grid);
+    setupTaskResize(el, task);
 
     el.querySelector('.block-delete').addEventListener('click', e => {
       e.stopPropagation();
@@ -1515,7 +1515,7 @@ function renderOvenBlocks(grid) {
     `;
 
     setupOvenDrag(el, block, grid);
-    setupOvenResize(el, block, grid);
+    setupOvenResize(el, block);
 
     el.querySelector('.block-delete').addEventListener('click', e => {
       e.stopPropagation();
@@ -1588,31 +1588,36 @@ function setupTaskDrag(el, task, grid) {
   });
 }
 
-function setupTaskResize(el, task, grid) {
+function setupBlockResize(el, block, onComplete) {
   const handle = el.querySelector('.resize-handle');
   handle.addEventListener('mousedown', e => {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const origEnd = task.endSlot;
+    const origEnd = block.endSlot;
 
     function onMove(me) {
       const dy = me.clientY - startY;
-      const newEnd = Math.max(task.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
-      task.endSlot = newEnd;
-      const HEADER_H = 40;
-      el.style.height = Math.max(18, slotToY(task.endSlot - task.startSlot)) + 'px';
+      const newEnd = Math.max(block.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
+      block.endSlot = newEnd;
+      el.style.height = Math.max(18, slotToY(block.endSlot - block.startSlot)) + 'px';
     }
 
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      saveState();
-      renderSchedule();
+      if (onComplete) onComplete();
     }
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupTaskResize(el, task) {
+  setupBlockResize(el, task, () => {
+    saveState();
+    renderSchedule();
   });
 }
 
@@ -1666,34 +1671,13 @@ function setupOvenDrag(el, block, grid) {
   });
 }
 
-function setupOvenResize(el, block, grid) {
-  const handle = el.querySelector('.resize-handle');
-  handle.addEventListener('mousedown', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startY = e.clientY;
-    const origEnd = block.endSlot;
-
-    function onMove(me) {
-      const dy = me.clientY - startY;
-      const newEnd = Math.max(block.startSlot + 1, Math.min(TOTAL_SLOTS, origEnd + Math.round(dy / SLOT_HEIGHT)));
-      block.endSlot = newEnd;
-      const HEADER_H = 40;
-      el.style.height = Math.max(18, slotToY(block.endSlot - block.startSlot)) + 'px';
+function setupOvenResize(el, block) {
+  setupBlockResize(el, block, () => {
+    if (hasOvenConflict()) {
+      toast('⚠ Oven conflict detected — blocks overlap', 'error');
     }
-
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (hasOvenConflict()) {
-        toast('⚠ Oven conflict detected — blocks overlap', 'error');
-      }
-      saveState();
-      renderOven();
-    }
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    saveState();
+    renderOven();
   });
 }
 
