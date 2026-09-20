@@ -1335,16 +1335,19 @@ function buildGrid(containerId, gridId, blockRenderer) {
   const dates = getWeekDates();
   grid.innerHTML = '';
 
+  // Batch DOM elements using DocumentFragment to eliminate layout thrashing
+  const fragment = document.createDocumentFragment();
+
   // Header row
   const gutterH = document.createElement('div');
   gutterH.className = 'time-gutter-header';
-  grid.appendChild(gutterH);
+  fragment.appendChild(gutterH);
 
   dates.forEach((date, i) => {
     const dh = document.createElement('div');
     dh.className = 'day-header' + (isToday(date) ? ' today' : '');
     dh.innerHTML = `<div class="day-name">${DAYS[i]}</div><div class="day-date">${date.getDate()}</div>`;
-    grid.appendChild(dh);
+    fragment.appendChild(dh);
   });
 
   // Time rows
@@ -1361,7 +1364,7 @@ function buildGrid(containerId, gridId, blockRenderer) {
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       label.innerHTML = `<span>${h12}${ampm}</span>`;
     }
-    grid.appendChild(label);
+    fragment.appendChild(label);
 
     // Day cells
     for (let day = 0; day < 7; day++) {
@@ -1370,9 +1373,11 @@ function buildGrid(containerId, gridId, blockRenderer) {
       cell.style.height = SLOT_HEIGHT + 'px';
       cell.dataset.slot = slot;
       cell.dataset.day = day;
-      grid.appendChild(cell);
+      fragment.appendChild(cell);
     }
   }
+
+  grid.appendChild(fragment);
 
   // Render blocks as absolute positioned over the grid
   blockRenderer(grid, dates);
@@ -1445,15 +1450,17 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'task');
+  // Click on empty cell to add via event delegation
+  if (!grid._hasCellClickListener) {
+    grid.addEventListener('click', e => {
+      if (e.target && e.target.classList && e.target.classList.contains('time-cell')) {
+        const slot = parseInt(e.target.dataset.slot);
+        const day = parseInt(e.target.dataset.day);
+        openQuickAddAtSlot(slot, day, 'task');
+      }
     });
-  });
+    grid._hasCellClickListener = true;
+  }
 }
 
 function createTaskBlockEl(task) {
@@ -1530,15 +1537,17 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'oven');
+  // Click on empty cell via event delegation
+  if (!grid._hasCellClickListener) {
+    grid.addEventListener('click', e => {
+      if (e.target && e.target.classList && e.target.classList.contains('time-cell')) {
+        const slot = parseInt(e.target.dataset.slot);
+        const day = parseInt(e.target.dataset.day);
+        openQuickAddAtSlot(slot, day, 'oven');
+      }
     });
-  });
+    grid._hasCellClickListener = true;
+  }
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
