@@ -1295,34 +1295,65 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// Optimized conflict detection: group blocks by day and sort by startSlot (O(N log N))
 function hasOvenConflict() {
+  const byDay = [[], [], [], [], [], [], []];
   const ob = state.ovenBlocks;
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    if (byDay[ob[i].day]) byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length; i++) {
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        if (dayBlocks[j].startSlot >= dayBlocks[i].endSlot) break;
+        return true;
+      }
     }
   }
   return false;
 }
 
+// Optimized schedule conflict detection: group active tasks by day and sort by startSlot (O(N log N))
 function hasScheduleConflict() {
+  const byDay = [[], [], [], [], [], [], []];
   const active = state.tasks.filter(t => !t.passive);
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    if (byDay[active[i].day]) byDay[active[i].day].push(active[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayTasks = byDay[d];
+    if (dayTasks.length < 2) continue;
+    dayTasks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayTasks.length; i++) {
+      for (let j = i + 1; j < dayTasks.length; j++) {
+        if (dayTasks[j].startSlot >= dayTasks[i].endSlot) break;
+        return true;
+      }
     }
   }
   return false;
 }
 
+// Optimized oven conflict ID calculation: group blocks by day and sort by startSlot (O(N log N))
 function getOvenConflictIds() {
   const conflicts = new Set();
+  const byDay = [[], [], [], [], [], [], []];
   const ob = state.ovenBlocks;
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    if (byDay[ob[i].day]) byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length; i++) {
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        if (dayBlocks[j].startSlot >= dayBlocks[i].endSlot) break;
+        conflicts.add(dayBlocks[i].id);
+        conflicts.add(dayBlocks[j].id);
       }
     }
   }
