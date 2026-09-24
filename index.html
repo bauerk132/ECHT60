@@ -2111,13 +2111,24 @@ function buildCategoryList() {
   `).join('');
 }
 
+// ⚡ Bolt Optimization: Single-pass O(N + M) map aggregation instead of multi-pass O(C * (N + M)) array filtering
 function updateCategoryCounts() {
-  CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
+  const counts = {};
+  const tasks = state.tasks;
+  for (let i = 0; i < tasks.length; i++) {
+    const cat = tasks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  const oven = state.ovenBlocks;
+  for (let i = 0; i < oven.length; i++) {
+    const cat = oven[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    const c = CATEGORIES[i];
     const el = document.getElementById(`cat-count-${c.id}`);
-    if (el) el.textContent = count || '';
-  });
+    if (el) el.textContent = counts[c.id] || '';
+  }
 }
 
 function buildCategorySelects() {
@@ -2382,10 +2393,15 @@ function init() {
     document.getElementById('oven-grid-container').scrollTop = fiveAM;
   }, 100);
 
-  // Refresh now-line every minute
+  // ⚡ Bolt Optimization: Update only the .now-line position directly every minute instead of tearing down & rebuilding the entire schedule/oven DOM tree
   setInterval(() => {
-    if (state.activeTab === 'schedule') renderSchedule();
-    if (state.activeTab === 'oven') renderOven();
+    if (state.activeTab === 'schedule') {
+      const grid = document.getElementById('schedule-grid');
+      if (grid) updateNowLine(grid);
+    } else if (state.activeTab === 'oven') {
+      const grid = document.getElementById('oven-grid');
+      if (grid) updateNowLine(grid);
+    }
   }, 60000);
 }
 
