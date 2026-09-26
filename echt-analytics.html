@@ -951,6 +951,9 @@ function fmtH(min) {
   const h = Math.floor(min/60), m = min%60;
   return m ? `${h}h ${m}m` : `${h}h`;
 }
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function toast(msg, type='ok') {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -1457,8 +1460,8 @@ function renderOvenGantt(A) {
       const e = Math.min(b.endSlot, endSlot);
       if (e <= s) return '';
       return `
-        <div class="gantt-block" style="left:${pct(s)};width:${pctW(s,e)};background:${isConflict?'rgba(139,0,0,0.5)':'rgba(192,98,42,0.5)'};border-left:2px solid ${isConflict?'#8b0000':'var(--echt-ember)'}" title="${b.name} ${slotToTime(b.startSlot)}–${slotToTime(b.endSlot)}${b.temp?' @ '+b.temp+'°F':''}">
-          <span class="gantt-block-label">${b.name}</span>
+        <div class="gantt-block" style="left:${pct(s)};width:${pctW(s,e)};background:${isConflict?'rgba(139,0,0,0.5)':'rgba(192,98,42,0.5)'};border-left:2px solid ${isConflict?'#8b0000':'var(--echt-ember)'}" title="${escHtml(b.name)} ${slotToTime(b.startSlot)}–${slotToTime(b.endSlot)}${b.temp?' @ '+escHtml(b.temp)+'°F':''}">
+          <span class="gantt-block-label">${escHtml(b.name)}</span>
         </div>
       `;
     }).join('');

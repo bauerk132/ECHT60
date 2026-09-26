@@ -1499,7 +1499,7 @@ function renderOvenBlocks(grid) {
       ${conflictIds.has(block.id) ? `<div class="conflict-badge">⚠ CONFLICT</div>` : ''}
       <div class="block-title">${escHtml(block.name)}</div>
       ${dur > 30 ? `<div class="block-time">${slotToTime(block.startSlot)}–${slotToTime(block.endSlot)}</div>` : ''}
-      ${block.temp && dur > 30 ? `<div class="block-temp">${block.temp}°F</div>` : ''}
+      ${block.temp && dur > 30 ? `<div class="block-temp">${escHtml(block.temp)}°F</div>` : ''}
       <div class="resize-handle"></div>
     `;
 
@@ -2317,7 +2317,7 @@ function hexToRgba(hex, alpha) {
 }
 
 function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ─── SEED DATA (first run) ───────────────────────────────────────────────
