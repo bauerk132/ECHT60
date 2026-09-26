@@ -987,18 +987,16 @@ function loadFromJSON(json) {
 
 // ─── ANALYTICS ENGINE ────────────────────────────────────────────────────
 
-function computeAll() {
-  const tasks = DATA.tasks;
-  const oven = DATA.ovenBlocks;
 
-  // ── Basic totals
+function computeBasicTotals(tasks, oven) {
   const totalTaskMin = tasks.reduce((s,t) => s + (t.endSlot - t.startSlot)*15, 0);
   const activeMin = tasks.filter(t=>!t.passive).reduce((s,t) => s + (t.endSlot-t.startSlot)*15, 0);
   const passiveMin = tasks.filter(t=>t.passive).reduce((s,t) => s + (t.endSlot-t.startSlot)*15, 0);
   const ovenMin = oven.reduce((s,b) => s + (b.endSlot-b.startSlot)*15, 0);
+  return { totalTaskMin, activeMin, passiveMin, ovenMin };
+}
 
-  // ── Oven utilization by slot (across all days)
-  // ovenSlotCount[slot] = number of days that slot has oven running
+function computeOvenMetrics(oven, TOTAL_SLOTS, blocksOverlap) {
   const ovenSlotCount = new Array(TOTAL_SLOTS).fill(0);
   const ovenSlotConflict = new Array(TOTAL_SLOTS).fill(false);
   oven.forEach(b => {
@@ -1006,7 +1004,7 @@ function computeAll() {
       ovenSlotCount[s]++;
     }
   });
-  // Mark conflict slots
+
   for (let i = 0; i < oven.length; i++) {
     for (let j = i+1; j < oven.length; j++) {
       if (blocksOverlap(oven[i], oven[j])) {
@@ -1018,12 +1016,9 @@ function computeAll() {
     }
   }
 
-  // ── Oven by day
   const ovenByDay = Array(7).fill(0);
   oven.forEach(b => { ovenByDay[b.day] += (b.endSlot - b.startSlot)*15; });
 
-  // ── Oven hourly utilization rate (% of days running that hour)
-  // For each hour, what fraction of the 7 days has oven running?
   const ovenHourlyRate = Array(24).fill(0);
   for (let h = 0; h < 24; h++) {
     const daysWithOven = new Set();
@@ -1035,25 +1030,24 @@ function computeAll() {
     ovenHourlyRate[h] = daysWithOven.size / 7;
   }
 
-  // ── Idle oven gaps: hours where tasks run but oven is off
-  // Per day: find task-active windows and oven-active windows, compute gaps
-  const idleGaps = []; // { day, startSlot, endSlot, durationMin }
+  return { ovenSlotCount, ovenSlotConflict, ovenByDay, ovenHourlyRate };
+}
+
+function computeIdleGaps(tasks, oven, TOTAL_SLOTS) {
+  const idleGaps = [];
   for (let day = 0; day < 7; day++) {
     const dayTasks = tasks.filter(t => t.day === day);
     const dayOven = oven.filter(b => b.day === day);
     if (dayTasks.length === 0) continue;
 
-    // Task active window
     const taskStart = Math.min(...dayTasks.map(t => t.startSlot));
     const taskEnd = Math.max(...dayTasks.map(t => t.endSlot));
 
-    // Build oven coverage bitmap for this day
     const ovenCover = new Array(TOTAL_SLOTS).fill(false);
     dayOven.forEach(b => {
       for (let s = b.startSlot; s < b.endSlot; s++) ovenCover[s] = true;
     });
 
-    // Find contiguous idle gaps within task window
     let gapStart = null;
     for (let s = taskStart; s <= taskEnd; s++) {
       if (!ovenCover[s] && s < taskEnd) {
@@ -1061,7 +1055,7 @@ function computeAll() {
       } else {
         if (gapStart !== null) {
           const dur = (s - gapStart) * 15;
-          if (dur >= 30) { // Only gaps >= 30 min are meaningful
+          if (dur >= 30) {
             idleGaps.push({ day, startSlot: gapStart, endSlot: s, durationMin: dur });
           }
           gapStart = null;
@@ -1069,8 +1063,10 @@ function computeAll() {
       }
     }
   }
+  return idleGaps;
+}
 
-  // ── Category breakdown
+function computeCategoryBreakdown(tasks, oven, CATEGORIES) {
   const catData = {};
   CATEGORIES.forEach(c => { catData[c.id] = { active: 0, passive: 0, oven: 0 }; });
   tasks.forEach(t => {
@@ -1082,8 +1078,10 @@ function computeAll() {
     const key = catData[b.category] ? b.category : 'custom';
     catData[key].oven += (b.endSlot - b.startSlot)*15;
   });
+  return catData;
+}
 
-  // ── Conflicts
+function computeConflicts(tasks, oven, blocksOverlap) {
   const ovenConflicts = [];
   for (let i = 0; i < oven.length; i++) {
     for (let j = i+1; j < oven.length; j++) {
@@ -1102,7 +1100,6 @@ function computeAll() {
     }
   }
 
-  // ── Conflict density by hour
   const conflictByHour = new Array(24).fill(0);
   [...ovenConflicts, ...activeConflicts].forEach(c => {
     const overlapStart = Math.max(c.a.startSlot, c.b.startSlot);
@@ -1112,8 +1109,10 @@ function computeAll() {
     }
   });
 
-  // ── Efficiency score (0–100)
-  // Factor 1: Oven utilization (during task hours) — higher is better, max 30pts
+  return { ovenConflicts, activeConflicts, conflictByHour };
+}
+
+function computeEfficiencyScore(tasks, oven, totalTaskMin, passiveMin, idleGaps, ovenConflicts, activeConflicts) {
   const taskDays = new Set(tasks.map(t => t.day));
   let ovenUtilScore = 0;
   if (taskDays.size > 0) {
@@ -1133,19 +1132,40 @@ function computeAll() {
     ovenUtilScore = totalTaskSlots > 0 ? Math.min(30, Math.round((ovenDuringTask / totalTaskSlots) * 30)) : 0;
   }
 
-  // Factor 2: Passive stacking (passive time / total time) — higher is better, max 25pts
   const passiveRatio = totalTaskMin > 0 ? passiveMin / totalTaskMin : 0;
-  const passiveScore = Math.min(25, Math.round(passiveRatio * 40)); // 62.5% passive = 25pts
+  const passiveScore = Math.min(25, Math.round(passiveRatio * 40));
 
-  // Factor 3: No conflicts — max 25pts
   const totalConflicts = ovenConflicts.length + activeConflicts.length;
   const conflictScore = Math.max(0, 25 - totalConflicts * 8);
 
-  // Factor 4: Idle gap minimization — max 20pts
   const totalIdleMin = idleGaps.reduce((s,g) => s + g.durationMin, 0);
   const idleScore = Math.max(0, 20 - Math.round(totalIdleMin / 30) * 4);
 
   const totalScore = ovenUtilScore + passiveScore + conflictScore + idleScore;
+
+  return {
+    score: totalScore,
+    scoreFactors: {
+      ovenUtil: { score: ovenUtilScore, max: 30, label: 'Oven utilization' },
+      passive:  { score: passiveScore,  max: 25, label: 'Passive stacking' },
+      conflict: { score: conflictScore, max: 25, label: 'Conflict-free' },
+      idle:     { score: idleScore,     max: 20, label: 'Idle gap control' },
+    },
+    taskDays
+  };
+}
+
+
+function computeAll() {
+  const tasks = DATA.tasks;
+  const oven = DATA.ovenBlocks;
+
+  const { totalTaskMin, activeMin, passiveMin, ovenMin } = computeBasicTotals(tasks, oven);
+  const { ovenSlotCount, ovenSlotConflict, ovenByDay, ovenHourlyRate } = computeOvenMetrics(oven, TOTAL_SLOTS, blocksOverlap);
+  const idleGaps = computeIdleGaps(tasks, oven, TOTAL_SLOTS);
+  const catData = computeCategoryBreakdown(tasks, oven, CATEGORIES);
+  const { ovenConflicts, activeConflicts, conflictByHour } = computeConflicts(tasks, oven, blocksOverlap);
+  const { score, scoreFactors, taskDays } = computeEfficiencyScore(tasks, oven, totalTaskMin, passiveMin, idleGaps, ovenConflicts, activeConflicts);
 
   return {
     totalTaskMin, activeMin, passiveMin, ovenMin,
@@ -1154,13 +1174,8 @@ function computeAll() {
     idleGaps,
     catData,
     ovenConflicts, activeConflicts, conflictByHour,
-    score: totalScore,
-    scoreFactors: {
-      ovenUtil: { score: ovenUtilScore, max: 30, label: 'Oven utilization' },
-      passive:  { score: passiveScore,  max: 25, label: 'Passive stacking' },
-      conflict: { score: conflictScore, max: 25, label: 'Conflict-free' },
-      idle:     { score: idleScore,     max: 20, label: 'Idle gap control' },
-    },
+    score,
+    scoreFactors,
     taskDays,
   };
 }
