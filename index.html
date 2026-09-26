@@ -1297,9 +1297,13 @@ function blocksOverlap(a, b) {
 
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+  if (ob.length < 2) return false;
+  const sorted = ob.slice().sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot) {
+      return true;
     }
   }
   return false;
