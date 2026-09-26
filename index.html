@@ -2266,8 +2266,47 @@ function setupExportImport() {
     reader.onload = ev => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (data.tasks) state.tasks = data.tasks;
-        if (data.ovenBlocks) state.ovenBlocks = data.ovenBlocks;
+        if (!data || typeof data !== 'object') throw new Error('Invalid data');
+
+        let validTasks = [];
+        if (data.tasks) {
+          if (!Array.isArray(data.tasks)) throw new Error('Tasks must be an array');
+          validTasks = data.tasks.map(t => {
+            if (!t || typeof t !== 'object') throw new Error('Invalid task');
+            return {
+              id: String(t.id || uid()),
+              name: String(t.name || 'Untitled'),
+              category: String(t.category || 'custom'),
+              day: Number(t.day ?? 0),
+              startSlot: Number(t.startSlot ?? 24),
+              endSlot: Number(t.endSlot ?? 28),
+              passive: Boolean(t.passive),
+              notes: String(t.notes || '')
+            };
+          });
+        }
+
+        let validOvenBlocks = [];
+        if (data.ovenBlocks) {
+          if (!Array.isArray(data.ovenBlocks)) throw new Error('Oven blocks must be an array');
+          validOvenBlocks = data.ovenBlocks.map(b => {
+            if (!b || typeof b !== 'object') throw new Error('Invalid oven block');
+            return {
+              id: String(b.id || uid()),
+              name: String(b.name || 'Oven'),
+              category: String(b.category || 'custom'),
+              day: Number(b.day ?? 0),
+              startSlot: Number(b.startSlot ?? 24),
+              endSlot: Number(b.endSlot ?? 28),
+              temp: String(b.temp || ''),
+              notes: String(b.notes || '')
+            };
+          });
+        }
+
+        if (data.tasks) state.tasks = validTasks;
+        if (data.ovenBlocks) state.ovenBlocks = validOvenBlocks;
+
         saveState();
         renderSchedule();
         if (state.activeTab === 'oven') renderOven();
