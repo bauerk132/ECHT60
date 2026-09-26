@@ -1114,13 +1114,24 @@ function computeAll() {
 
   // ── Efficiency score (0–100)
   // Factor 1: Oven utilization (during task hours) — higher is better, max 30pts
-  const taskDays = new Set(tasks.map(t => t.day));
+  const dayTasksMap = new Map();
+  tasks.forEach(t => {
+    let dt = dayTasksMap.get(t.day);
+    if (!dt) { dt = []; dayTasksMap.set(t.day, dt); }
+    dt.push(t);
+  });
+  const taskDays = new Set(dayTasksMap.keys());
   let ovenUtilScore = 0;
-  if (taskDays.size > 0) {
+  if (dayTasksMap.size > 0) {
+    const dayOvenMap = new Map();
+    oven.forEach(b => {
+      let ob = dayOvenMap.get(b.day);
+      if (!ob) { ob = []; dayOvenMap.set(b.day, ob); }
+      ob.push(b);
+    });
     let totalTaskSlots = 0, ovenDuringTask = 0;
-    taskDays.forEach(day => {
-      const dayTasks = tasks.filter(t => t.day === day);
-      const dayOven = oven.filter(b => b.day === day);
+    dayTasksMap.forEach((dayTasks, day) => {
+      const dayOven = dayOvenMap.get(day) || [];
       const taskStart = Math.min(...dayTasks.map(t => t.startSlot));
       const taskEnd = Math.max(...dayTasks.map(t => t.endSlot));
       totalTaskSlots += (taskEnd - taskStart);
