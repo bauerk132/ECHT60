@@ -1297,9 +1297,30 @@ function blocksOverlap(a, b) {
 
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  if (ob.length < 2) return false;
+
+  const byDay = {};
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    const b = ob[i];
+    if (!byDay[b.day]) {
+      byDay[b.day] = [b];
+    } else {
+      byDay[b.day].push(b);
+    }
+  }
+
+  for (const day in byDay) {
+    const blocks = byDay[day];
+    if (blocks.length < 2) continue;
+    blocks.sort((a, b) => a.startSlot - b.startSlot);
+    let maxEndSlot = blocks[0].endSlot;
+    for (let i = 1; i < blocks.length; i++) {
+      if (blocks[i].startSlot < maxEndSlot) {
+        return true;
+      }
+      if (blocks[i].endSlot > maxEndSlot) {
+        maxEndSlot = blocks[i].endSlot;
+      }
     }
   }
   return false;
