@@ -1434,15 +1434,6 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'task');
-    });
-  });
 }
 
 function createTaskBlockEl(task) {
@@ -1519,15 +1510,6 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'oven');
-    });
-  });
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
@@ -2299,6 +2281,29 @@ function setupAddBlockBtn() {
   });
 }
 
+// ─── GRID EVENT DELEGATION ───────────────────────────────────────────────
+// ⚡ Bolt Optimization: Delegate time-cell click events to grid containers
+// Instead of attaching listeners to 672 individual .time-cell elements on
+// every grid render, single delegated click handlers on #schedule-grid and
+// #oven-grid process cell clicks efficiently and eliminate allocation churn.
+function setupGridDelegation() {
+  document.getElementById('schedule-grid').addEventListener('click', e => {
+    if (e.target.classList.contains('time-cell')) {
+      const slot = parseInt(e.target.dataset.slot);
+      const day = parseInt(e.target.dataset.day);
+      openQuickAddAtSlot(slot, day, 'task');
+    }
+  });
+
+  document.getElementById('oven-grid').addEventListener('click', e => {
+    if (e.target.classList.contains('time-cell')) {
+      const slot = parseInt(e.target.dataset.slot);
+      const day = parseInt(e.target.dataset.day);
+      openQuickAddAtSlot(slot, day, 'oven');
+    }
+  });
+}
+
 // ─── SCROLL TO CURRENT TIME ──────────────────────────────────────────────
 function scrollToCurrentTime() {
   const now = new Date();
@@ -2360,6 +2365,7 @@ function init() {
   setupExportImport();
   setupModal();
   setupAddBlockBtn();
+  setupGridDelegation();
 
   updateWeekLabel();
   renderSchedule();
