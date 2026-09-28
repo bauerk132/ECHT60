@@ -1434,15 +1434,18 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'task');
+  // ⚡ Bolt Optimization: Use event delegation on grid for cell clicks instead of attaching 672 individual click handlers per render.
+  if (!grid.dataset.cellClickBound) {
+    grid.dataset.cellClickBound = 'true';
+    grid.addEventListener('click', e => {
+      const cell = e.target.closest('.time-cell');
+      if (cell && e.target === cell) {
+        const slot = parseInt(cell.dataset.slot);
+        const day = parseInt(cell.dataset.day);
+        openQuickAddAtSlot(slot, day, 'task');
+      }
     });
-  });
+  }
 }
 
 function createTaskBlockEl(task) {
@@ -1469,16 +1472,19 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Reuse conflictIds set computed in renderOven to avoid duplicate O(O²) calls in renderOvenBlocks.
+let lastOvenConflictIds = new Set();
+
 function renderOven() {
   buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
-  const conflicts = getOvenConflictIds();
-  document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
+  document.getElementById('oven-conflict-banner').classList.toggle('visible', lastOvenConflictIds.size > 0);
 }
 
 function renderOvenBlocks(grid) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
   const conflictIds = getOvenConflictIds();
+  lastOvenConflictIds = conflictIds;
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -1519,15 +1525,18 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'oven');
+  // ⚡ Bolt Optimization: Use event delegation on grid for cell clicks instead of attaching 672 individual click handlers per render.
+  if (!grid.dataset.cellClickBound) {
+    grid.dataset.cellClickBound = 'true';
+    grid.addEventListener('click', e => {
+      const cell = e.target.closest('.time-cell');
+      if (cell && e.target === cell) {
+        const slot = parseInt(cell.dataset.slot);
+        const day = parseInt(cell.dataset.day);
+        openQuickAddAtSlot(slot, day, 'oven');
+      }
     });
-  });
+  }
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
@@ -2100,13 +2109,22 @@ function buildCategoryList() {
   `).join('');
 }
 
+// ⚡ Bolt Optimization: Aggregate counts in a single pass O(T + O + C) instead of calling .filter() 2*C times O(C * (T + O)).
 function updateCategoryCounts() {
-  CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
-    const el = document.getElementById(`cat-count-${c.id}`);
-    if (el) el.textContent = count || '';
-  });
+  const counts = Object.create(null);
+  for (let i = 0; i < state.tasks.length; i++) {
+    const cat = state.tasks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < state.ovenBlocks.length; i++) {
+    const cat = state.ovenBlocks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    const cId = CATEGORIES[i].id;
+    const el = document.getElementById(`cat-count-${cId}`);
+    if (el) el.textContent = counts[cId] || '';
+  }
 }
 
 function buildCategorySelects() {
