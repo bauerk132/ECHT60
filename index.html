@@ -1434,15 +1434,14 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
+  // ⚡ Bolt Optimization: Use event delegation instead of attaching 672 separate listeners
+  grid.onclick = e => {
+    if (e.target && e.target.classList && e.target.classList.contains('time-cell')) {
+      const slot = parseInt(e.target.dataset.slot);
+      const day = parseInt(e.target.dataset.day);
       openQuickAddAtSlot(slot, day, 'task');
-    });
-  });
+    }
+  };
 }
 
 function createTaskBlockEl(task) {
@@ -1470,15 +1469,15 @@ function createTaskBlockEl(task) {
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid, dates) => renderOvenBlocks(grid, dates, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, dates, conflictIds) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+  if (!conflictIds) conflictIds = getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -1519,15 +1518,14 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
+  // ⚡ Bolt Optimization: Use event delegation instead of attaching 672 separate listeners
+  grid.onclick = e => {
+    if (e.target && e.target.classList && e.target.classList.contains('time-cell')) {
+      const slot = parseInt(e.target.dataset.slot);
+      const day = parseInt(e.target.dataset.day);
       openQuickAddAtSlot(slot, day, 'oven');
-    });
-  });
+    }
+  };
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
