@@ -1434,15 +1434,15 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
+  // Bolt Optimization: Use event delegation instead of attaching 672 individual event listeners
+  grid.onclick = e => {
+    const cell = e.target.closest('.time-cell');
+    if (cell && e.target === cell) {
       const slot = parseInt(cell.dataset.slot);
       const day = parseInt(cell.dataset.day);
       openQuickAddAtSlot(slot, day, 'task');
-    });
-  });
+    }
+  };
 }
 
 function createTaskBlockEl(task) {
@@ -1519,15 +1519,15 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
+  // Bolt Optimization: Use event delegation instead of attaching 672 individual event listeners
+  grid.onclick = e => {
+    const cell = e.target.closest('.time-cell');
+    if (cell && e.target === cell) {
       const slot = parseInt(cell.dataset.slot);
       const day = parseInt(cell.dataset.day);
       openQuickAddAtSlot(slot, day, 'oven');
-    });
-  });
+    }
+  };
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
