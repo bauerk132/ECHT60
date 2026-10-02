@@ -1191,6 +1191,12 @@ const CATEGORIES = [
   { id: 'custom',       name: 'Other',         color: '#7a6a8a' },
 ];
 
+// Fast O(1) lookup map for categories to prevent linear searches during rendering
+const CATEGORY_MAP = CATEGORIES.reduce((map, cat) => {
+  map[cat.id] = cat;
+  return map;
+}, {});
+
 // ─── STATE ───────────────────────────────────────────────────────────────
 let state = {
   weekOffset: 0,
@@ -1251,12 +1257,12 @@ function yToSlot(y) {
 }
 
 function getCatColor(catId) {
-  const cat = CATEGORIES.find(c => c.id === catId);
+  const cat = CATEGORY_MAP[catId];
   return cat ? cat.color : '#7a6a8a';
 }
 
 function getCatName(catId) {
-  const cat = CATEGORIES.find(c => c.id === catId);
+  const cat = CATEGORY_MAP[catId];
   return cat ? cat.name : catId;
 }
 
@@ -1469,16 +1475,17 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Reuse computed conflict set in renderOven to avoid redundant O(N^2) overlap calculations
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid, dates) => renderOvenBlocks(grid, dates, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, dates, conflictIds) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+  if (!conflictIds) conflictIds = getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -2100,13 +2107,23 @@ function buildCategoryList() {
   `).join('');
 }
 
+// ⚡ Bolt Optimization: Calculate category counts in a single pass O(T + B)
+// instead of filtering both arrays for each category O(C * (T + B)).
 function updateCategoryCounts() {
-  CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
-    const el = document.getElementById(`cat-count-${c.id}`);
-    if (el) el.textContent = count || '';
-  });
+  const counts = {};
+  for (let i = 0; i < state.tasks.length; i++) {
+    const cat = state.tasks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < state.ovenBlocks.length; i++) {
+    const cat = state.ovenBlocks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    const id = CATEGORIES[i].id;
+    const el = document.getElementById(`cat-count-${id}`);
+    if (el) el.textContent = counts[id] || '';
+  }
 }
 
 function buildCategorySelects() {
