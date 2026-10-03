@@ -1434,15 +1434,18 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'task');
+  // ⚡ Bolt Optimization: Use delegated event listener on grid container
+  // Replacing 672 individual event listeners with a single delegated listener reduces memory and handler setup overhead.
+  if (!grid._hasCellClickListener) {
+    grid._hasCellClickListener = true;
+    grid.addEventListener('click', e => {
+      if (e.target && e.target.classList.contains('time-cell')) {
+        const slot = parseInt(e.target.dataset.slot);
+        const day = parseInt(e.target.dataset.day);
+        openQuickAddAtSlot(slot, day, 'task');
+      }
     });
-  });
+  }
 }
 
 function createTaskBlockEl(task) {
@@ -1519,15 +1522,18 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
-      const slot = parseInt(cell.dataset.slot);
-      const day = parseInt(cell.dataset.day);
-      openQuickAddAtSlot(slot, day, 'oven');
+  // ⚡ Bolt Optimization: Use delegated event listener on oven grid container
+  // Replacing 672 individual event listeners with a single delegated listener reduces memory and handler setup overhead.
+  if (!grid._hasCellClickListener) {
+    grid._hasCellClickListener = true;
+    grid.addEventListener('click', e => {
+      if (e.target && e.target.classList.contains('time-cell')) {
+        const slot = parseInt(e.target.dataset.slot);
+        const day = parseInt(e.target.dataset.day);
+        openQuickAddAtSlot(slot, day, 'oven');
+      }
     });
-  });
+  }
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
