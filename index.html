@@ -1434,15 +1434,18 @@ function renderTaskBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell to add
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
+  // ⚡ Bolt Optimization: Event delegation for cell clicks
+  // Replaces 672 individual event listener attachments with a single delegated handler
+  if (!grid._cellClickAttached) {
+    grid._cellClickAttached = true;
+    grid.addEventListener('click', e => {
+      const cell = e.target.closest('.time-cell');
+      if (!cell || !grid.contains(cell) || e.target !== cell) return;
       const slot = parseInt(cell.dataset.slot);
       const day = parseInt(cell.dataset.day);
       openQuickAddAtSlot(slot, day, 'task');
     });
-  });
+  }
 }
 
 function createTaskBlockEl(task) {
@@ -1519,15 +1522,18 @@ function renderOvenBlocks(grid) {
     grid.appendChild(el);
   });
 
-  // Click on empty cell
-  grid.querySelectorAll('.time-cell').forEach(cell => {
-    cell.addEventListener('click', e => {
-      if (e.target !== cell) return;
+  // ⚡ Bolt Optimization: Event delegation for oven cell clicks
+  // Replaces 672 individual event listener attachments with a single delegated handler
+  if (!grid._cellClickAttached) {
+    grid._cellClickAttached = true;
+    grid.addEventListener('click', e => {
+      const cell = e.target.closest('.time-cell');
+      if (!cell || !grid.contains(cell) || e.target !== cell) return;
       const slot = parseInt(cell.dataset.slot);
       const day = parseInt(cell.dataset.day);
       openQuickAddAtSlot(slot, day, 'oven');
     });
-  });
+  }
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
