@@ -1404,6 +1404,11 @@ function renderTaskBlocks(grid) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
 
+  // ⚡ Bolt Optimization: Batch DOM insertions using DocumentFragment
+  // Appending elements to a fragment in memory rather than live DOM repeatedly
+  // prevents multiple layout recalculations and reflows during schedule renders.
+  const fragment = document.createDocumentFragment();
+
   // We need column widths — use a wrapper approach
   // Each day column is 1fr of (total - 52px) / 7
   state.tasks.forEach(task => {
@@ -1431,8 +1436,10 @@ function renderTaskBlocks(grid) {
       openEditModal(task);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
@@ -1472,16 +1479,21 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Compute conflictIds once and reuse across banner check and block rendering
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', grid => renderOvenBlocks(grid, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, conflictIds = getOvenConflictIds()) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+
+  // ⚡ Bolt Optimization: Batch DOM insertions using DocumentFragment
+  // Appending elements to a fragment in memory rather than live DOM repeatedly
+  // prevents multiple layout recalculations and reflows during oven grid renders.
+  const fragment = document.createDocumentFragment();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -1519,8 +1531,10 @@ function renderOvenBlocks(grid) {
       openEditOvenModal(block);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for oven cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
