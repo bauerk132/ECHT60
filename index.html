@@ -1296,30 +1296,28 @@ function blocksOverlap(a, b) {
 }
 
 function hasOvenConflict() {
-  const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
-    }
+  const ob = state.ovenBlocks.slice().sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < ob.length - 1; i++) {
+    if (blocksOverlap(ob[i], ob[i + 1])) return true;
   }
   return false;
 }
 
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
-    }
+  active.sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < active.length - 1; i++) {
+    if (blocksOverlap(active[i], active[i + 1])) return true;
   }
   return false;
 }
 
 function getOvenConflictIds() {
   const conflicts = new Set();
-  const ob = state.ovenBlocks;
+  const ob = state.ovenBlocks.slice().sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
   for (let i = 0; i < ob.length; i++) {
     for (let j = i + 1; j < ob.length; j++) {
+      if (ob[j].day !== ob[i].day || ob[j].startSlot >= ob[i].endSlot) break;
       if (blocksOverlap(ob[i], ob[j])) {
         conflicts.add(ob[i].id);
         conflicts.add(ob[j].id);
