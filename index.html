@@ -1295,21 +1295,34 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Bucket blocks by day to reduce pairwise overlap checks from O(N^2) to O((N/7)^2 * 7)
 function hasOvenConflict() {
+  const byDay = Array.from({ length: 7 }, () => []);
   const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+  for (let k = 0; k < ob.length; k++) byDay[ob[k].day]?.push(ob[k]);
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    for (let i = 0; i < dayBlocks.length; i++) {
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        if (dayBlocks[i].startSlot < dayBlocks[j].endSlot && dayBlocks[j].startSlot < dayBlocks[i].endSlot) return true;
+      }
     }
   }
   return false;
 }
 
 function hasScheduleConflict() {
-  const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+  const byDay = Array.from({ length: 7 }, () => []);
+  const tasks = state.tasks;
+  for (let k = 0; k < tasks.length; k++) {
+    if (!tasks[k].passive) byDay[tasks[k].day]?.push(tasks[k]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    for (let i = 0; i < dayBlocks.length; i++) {
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        if (dayBlocks[i].startSlot < dayBlocks[j].endSlot && dayBlocks[j].startSlot < dayBlocks[i].endSlot) return true;
+      }
     }
   }
   return false;
@@ -1317,12 +1330,17 @@ function hasScheduleConflict() {
 
 function getOvenConflictIds() {
   const conflicts = new Set();
+  const byDay = Array.from({ length: 7 }, () => []);
   const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+  for (let k = 0; k < ob.length; k++) byDay[ob[k].day]?.push(ob[k]);
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    for (let i = 0; i < dayBlocks.length; i++) {
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        if (dayBlocks[i].startSlot < dayBlocks[j].endSlot && dayBlocks[j].startSlot < dayBlocks[i].endSlot) {
+          conflicts.add(dayBlocks[i].id);
+          conflicts.add(dayBlocks[j].id);
+        }
       }
     }
   }
@@ -1404,13 +1422,12 @@ function renderTaskBlocks(grid) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
 
-  // We need column widths — use a wrapper approach
-  // Each day column is 1fr of (total - 52px) / 7
+  // ⚡ Bolt Optimization: Batch task block DOM insertions using DocumentFragment
+  const fragment = document.createDocumentFragment();
   state.tasks.forEach(task => {
     const el = createTaskBlockEl(task);
     const top = HEADER_H + slotToY(task.startSlot);
     const height = Math.max(18, slotToY(task.endSlot - task.startSlot));
-    const colW = `calc((100% - ${GUTTER_W}px) / 7)`;
 
     el.style.position = 'absolute';
     el.style.top = top + 'px';
@@ -1431,8 +1448,9 @@ function renderTaskBlocks(grid) {
       openEditModal(task);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
@@ -1472,10 +1490,12 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+let currentOvenConflicts = new Set();
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
-  const conflicts = getOvenConflictIds();
-  document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
+  buildGrid('oven-grid-container', 'oven-grid', grid => {
+    currentOvenConflicts = renderOvenBlocks(grid);
+  });
+  document.getElementById('oven-conflict-banner').classList.toggle('visible', currentOvenConflicts.size > 0);
 }
 
 function renderOvenBlocks(grid) {
@@ -1483,6 +1503,8 @@ function renderOvenBlocks(grid) {
   const GUTTER_W = 52;
   const conflictIds = getOvenConflictIds();
 
+  // ⚡ Bolt Optimization: Batch oven block DOM insertions using DocumentFragment
+  const fragment = document.createDocumentFragment();
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
     el.className = 'oven-block' + (conflictIds.has(block.id) ? ' conflict' : '');
@@ -1519,8 +1541,9 @@ function renderOvenBlocks(grid) {
       openEditOvenModal(block);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for oven cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
@@ -1534,6 +1557,8 @@ function renderOvenBlocks(grid) {
       openQuickAddAtSlot(slot, day, 'oven');
     });
   }
+
+  return conflictIds;
 }
 
 // ─── DRAG & DROP — TASKS ─────────────────────────────────────────────────
