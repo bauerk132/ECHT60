@@ -1295,34 +1295,56 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Fast O(N) slot-grid conflict check with early exit
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const occupied = Array.from({ length: 7 }, () => new Uint8Array(TOTAL_SLOTS));
+
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    const block = ob[i];
+    const daySlots = occupied[block.day];
+    for (let s = block.startSlot; s < block.endSlot; s++) {
+      if (daySlots[s]) return true;
+      daySlots[s] = 1;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Fast O(N) slot-grid conflict check for active tasks
 function hasScheduleConflict() {
-  const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+  const tasks = state.tasks;
+  const occupied = Array.from({ length: 7 }, () => new Uint8Array(TOTAL_SLOTS));
+
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    if (task.passive) continue;
+    const daySlots = occupied[task.day];
+    for (let s = task.startSlot; s < task.endSlot; s++) {
+      if (daySlots[s]) return true;
+      daySlots[s] = 1;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Fast O(N) grid-slot map conflict resolution
+// Replaces O(N^2) pairwise block comparisons with slot occupant tracking.
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const slots = Array.from({ length: 7 }, () => new Array(TOTAL_SLOTS));
+
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    const block = ob[i];
+    const daySlots = slots[block.day];
+    for (let s = block.startSlot; s < block.endSlot; s++) {
+      const occupant = daySlots[s];
+      if (occupant) {
+        conflicts.add(occupant.id);
+        conflicts.add(block.id);
+      } else {
+        daySlots[s] = block;
       }
     }
   }
@@ -1472,16 +1494,17 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Compute conflict IDs once and pass to renderOvenBlocks
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid) => renderOvenBlocks(grid, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, conflicts) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+  const conflictIds = conflicts || getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -2106,13 +2129,23 @@ function buildCategoryList() {
   `).join('');
 }
 
+// ⚡ Bolt Optimization: Single O(N+M) pass tally for category counts
+// Replaces 16 .filter array traversals across categories with a single pass lookup map.
 function updateCategoryCounts() {
-  CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
-    const el = document.getElementById(`cat-count-${c.id}`);
-    if (el) el.textContent = count || '';
-  });
+  const counts = Object.create(null);
+  for (let i = 0; i < state.tasks.length; i++) {
+    const cat = state.tasks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < state.ovenBlocks.length; i++) {
+    const cat = state.ovenBlocks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    const cid = CATEGORIES[i].id;
+    const el = document.getElementById(`cat-count-${cid}`);
+    if (el) el.textContent = counts[cid] || '';
+  }
 }
 
 function buildCategorySelects() {
