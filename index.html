@@ -1403,6 +1403,7 @@ function renderSchedule() {
 function renderTaskBlocks(grid) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
+  const fragment = document.createDocumentFragment();
 
   // We need column widths — use a wrapper approach
   // Each day column is 1fr of (total - 52px) / 7
@@ -1431,8 +1432,9 @@ function renderTaskBlocks(grid) {
       openEditModal(task);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
@@ -1473,15 +1475,15 @@ function createTaskBlockEl(task) {
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', grid => renderOvenBlocks(grid, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, conflictIds = getOvenConflictIds()) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+  const fragment = document.createDocumentFragment();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -1519,8 +1521,9 @@ function renderOvenBlocks(grid) {
       openEditOvenModal(block);
     });
 
-    grid.appendChild(el);
+    fragment.appendChild(el);
   });
+  grid.appendChild(fragment);
 
   // ⚡ Bolt Optimization: Event delegation for oven cell clicks
   // Replaces 672 individual event listener attachments with a single delegated handler
