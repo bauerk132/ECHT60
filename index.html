@@ -1297,9 +1297,13 @@ function blocksOverlap(a, b) {
 
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+  if (ob.length < 2) return false;
+  const sorted = [...ob].sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (sorted[j].day !== sorted[i].day) break;
+      if (sorted[j].startSlot >= sorted[i].endSlot) break;
+      if (blocksOverlap(sorted[i], sorted[j])) return true;
     }
   }
   return false;
@@ -1307,9 +1311,13 @@ function hasOvenConflict() {
 
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+  if (active.length < 2) return false;
+  const sorted = [...active].sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (sorted[j].day !== sorted[i].day) break;
+      if (sorted[j].startSlot >= sorted[i].endSlot) break;
+      if (blocksOverlap(sorted[i], sorted[j])) return true;
     }
   }
   return false;
@@ -1318,11 +1326,15 @@ function hasScheduleConflict() {
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+  if (ob.length < 2) return conflicts;
+  const sorted = [...ob].sort((a, b) => a.day - b.day || a.startSlot - b.startSlot);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (sorted[j].day !== sorted[i].day) break;
+      if (sorted[j].startSlot >= sorted[i].endSlot) break;
+      if (blocksOverlap(sorted[i], sorted[j])) {
+        conflicts.add(sorted[i].id);
+        conflicts.add(sorted[j].id);
       }
     }
   }
