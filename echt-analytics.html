@@ -1006,17 +1006,7 @@ function computeAll() {
       ovenSlotCount[s]++;
     }
   });
-  // Mark conflict slots
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        for (let s = Math.max(oven[i].startSlot, oven[j].startSlot);
-                 s < Math.min(oven[i].endSlot, oven[j].endSlot); s++) {
-          ovenSlotConflict[s] = true;
-        }
-      }
-    }
-  }
+  // Mark conflict slots (deferred after ovenConflicts is populated below)
 
   // ── Oven by day
   const ovenByDay = Array(7).fill(0);
@@ -1084,20 +1074,39 @@ function computeAll() {
   });
 
   // ── Conflicts
+  // ⚡ Bolt Optimization: Group by day for O(N log N / day) overlap detection
   const ovenConflicts = [];
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        ovenConflicts.push({ type: 'oven', a: oven[i], b: oven[j] });
+  const ovenByDayList = Array.from({length: 7}, () => []);
+  oven.forEach(b => { if (b.day >= 0 && b.day < 7) ovenByDayList[b.day].push(b); });
+  for (let d = 0; d < 7; d++) {
+    const list = ovenByDayList[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) {
+          ovenConflicts.push({ type: 'oven', a: list[i], b: list[j] });
+        }
       }
     }
   }
+
+  // Mark conflict slots using pre-computed ovenConflicts
+  ovenConflicts.forEach(c => {
+    for (let s = Math.max(c.a.startSlot, c.b.startSlot); s < Math.min(c.a.endSlot, c.b.endSlot); s++) {
+      ovenSlotConflict[s] = true;
+    }
+  });
+
   const activeConflicts = [];
   const activeTasks = tasks.filter(t => !t.passive);
-  for (let i = 0; i < activeTasks.length; i++) {
-    for (let j = i+1; j < activeTasks.length; j++) {
-      if (blocksOverlap(activeTasks[i], activeTasks[j])) {
-        activeConflicts.push({ type: 'active', a: activeTasks[i], b: activeTasks[j] });
+  const activeByDayList = Array.from({length: 7}, () => []);
+  activeTasks.forEach(t => { if (t.day >= 0 && t.day < 7) activeByDayList[t.day].push(t); });
+  for (let d = 0; d < 7; d++) {
+    const list = activeByDayList[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) {
+          activeConflicts.push({ type: 'active', a: list[i], b: list[j] });
+        }
       }
     }
   }
