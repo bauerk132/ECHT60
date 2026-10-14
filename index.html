@@ -1295,11 +1295,20 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Group by day & sort by startSlot for O(N log N) overlap detection
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    const d = ob[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = byDay[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length - 1; i++) {
+      if (list[i + 1].startSlot < list[i].endSlot) return true;
     }
   }
   return false;
@@ -1307,22 +1316,39 @@ function hasOvenConflict() {
 
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    const d = active[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(active[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = byDay[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length - 1; i++) {
+      if (list[i + 1].startSlot < list[i].endSlot) return true;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Group oven blocks by day to reduce pairwise comparison time
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    const d = ob[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = byDay[d];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) {
+          conflicts.add(list[i].id);
+          conflicts.add(list[j].id);
+        }
       }
     }
   }
@@ -1472,16 +1498,17 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Calculate conflictIds once in renderOven and pass to block renderer
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid, dates) => renderOvenBlocks(grid, dates, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
+  return conflicts;
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, dates, conflictIds = getOvenConflictIds()) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -1928,9 +1955,11 @@ function openEditOvenModal(block) {
 }
 
 // ─── ANALYTICS ───────────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Reuse hasOvenConflict() result across renderAnalytics and generateInsights
 function renderAnalytics() {
   const tasks = state.tasks;
   const oven = state.ovenBlocks;
+  const isOvenConflict = hasOvenConflict();
 
   // Stats
   const totalTaskMin = tasks.reduce((s, t) => s + (t.endSlot - t.startSlot) * 15, 0);
@@ -1958,7 +1987,7 @@ function renderAnalytics() {
     <div class="stat-card">
       <div class="stat-card-label">Oven Time</div>
       <div class="stat-card-value">${Math.round(totalOvenMin / 60 * 10) / 10}h</div>
-      <div class="stat-card-sub">${oven.length} bake sessions · ${hasOvenConflict() ? '⚠ conflicts' : 'no conflicts'}</div>
+      <div class="stat-card-sub">${oven.length} bake sessions · ${isOvenConflict ? '⚠ conflicts' : 'no conflicts'}</div>
     </div>
   `;
 
@@ -2013,7 +2042,7 @@ function renderAnalytics() {
   }).join('');
 
   // Insights
-  const insights = generateInsights(tasks, oven, catTotals, ovenByDay);
+  const insights = generateInsights(tasks, oven, catTotals, ovenByDay, isOvenConflict);
   document.getElementById('insights-container').innerHTML = insights.map(ins => `
     <div class="insight-card">
       <div class="insight-title">${ins.title}</div>
@@ -2022,11 +2051,11 @@ function renderAnalytics() {
   `).join('') || '<div style="color:var(--echt-tan);font-size:12px;padding:8px">Add more blocks to generate insights.</div>';
 }
 
-function generateInsights(tasks, oven, catTotals, ovenByDay) {
+function generateInsights(tasks, oven, catTotals, ovenByDay, isOvenConflict = hasOvenConflict()) {
   const insights = [];
 
   // Oven conflicts
-  if (hasOvenConflict()) {
+  if (isOvenConflict) {
     insights.push({
       title: '🔥 Oven Conflict',
       text: 'Two or more oven blocks overlap. The oven can only run one thing at a time — stagger your bake times or adjust temperatures to batch items together.'
