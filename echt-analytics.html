@@ -1084,23 +1084,32 @@ function computeAll() {
   });
 
   // ── Conflicts
-  const ovenConflicts = [];
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        ovenConflicts.push({ type: 'oven', a: oven[i], b: oven[j] });
+  // ⚡ Bolt Optimization: Group blocks by day and sort by startSlot to optimize conflict searching from O(N^2) to O(N log N)
+  function findBlockConflicts(blocks, type) {
+    const conflicts = [];
+    if (blocks.length < 2) return conflicts;
+    const byDay = Array.from({length: 7}, () => []);
+    for (let i = 0; i < blocks.length; i++) {
+      byDay[blocks[i].day].push(blocks[i]);
+    }
+    for (let d = 0; d < 7; d++) {
+      const dayBlocks = byDay[d];
+      if (dayBlocks.length < 2) continue;
+      dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+      for (let i = 0; i < dayBlocks.length; i++) {
+        const a = dayBlocks[i];
+        for (let j = i + 1; j < dayBlocks.length; j++) {
+          const b = dayBlocks[j];
+          if (b.startSlot >= a.endSlot) break;
+          conflicts.push({ type, a, b });
+        }
       }
     }
+    return conflicts;
   }
-  const activeConflicts = [];
-  const activeTasks = tasks.filter(t => !t.passive);
-  for (let i = 0; i < activeTasks.length; i++) {
-    for (let j = i+1; j < activeTasks.length; j++) {
-      if (blocksOverlap(activeTasks[i], activeTasks[j])) {
-        activeConflicts.push({ type: 'active', a: activeTasks[i], b: activeTasks[j] });
-      }
-    }
-  }
+
+  const ovenConflicts = findBlockConflicts(oven, 'oven');
+  const activeConflicts = findBlockConflicts(tasks.filter(t => !t.passive), 'active');
 
   // ── Conflict density by hour
   const conflictByHour = new Array(24).fill(0);
