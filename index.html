@@ -1295,34 +1295,70 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Group by day and sort by startSlot with early exit (sweep-line O(N log N))
+// Replaces O(N^2) double loop to significantly accelerate conflict detection on schedule renders
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const byDay = Array.from({ length: 7 }, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    const d = ob[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    const len = dayBlocks.length;
+    for (let i = 0; i < len - 1; i++) {
+      if (dayBlocks[i].endSlot > dayBlocks[i + 1].startSlot) return true;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Group by day and sort by startSlot with early exit (sweep-line O(N log N))
+// Avoids checking cross-day blocks and stops checking adjacent blocks early
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
+  const byDay = Array.from({ length: 7 }, () => []);
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    const d = active[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(active[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    const len = dayBlocks.length;
+    for (let i = 0; i < len - 1; i++) {
+      if (dayBlocks[i].endSlot > dayBlocks[i + 1].startSlot) return true;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Group by day and sort by startSlot with sweep-line early exit
+// Reduces conflict gathering from O(N^2) to O(N log N) per render call
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const byDay = Array.from({ length: 7 }, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    const d = ob[i].day;
+    if (d >= 0 && d < 7) byDay[d].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    const len = dayBlocks.length;
+    for (let i = 0; i < len; i++) {
+      const a = dayBlocks[i];
+      for (let j = i + 1; j < len; j++) {
+        const b = dayBlocks[j];
+        if (b.startSlot >= a.endSlot) break; // Sweep-line early exit
+        conflicts.add(a.id);
+        conflicts.add(b.id);
       }
     }
   }
