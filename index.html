@@ -1291,15 +1291,25 @@ function toast(msg, type = 'ok') {
 }
 
 // ─── OVERLAP DETECTION ───────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Day-bucketed sweep-line interval overlap checking.
+// Grouping blocks by day and sorting by startSlot avoids O(N^2) cross-day checks
+// and breaks the inner loop early when startSlot >= endSlot.
 function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length - 1; i++) {
+      if (dayBlocks[i + 1].startSlot < dayBlocks[i].endSlot) return true;
     }
   }
   return false;
@@ -1307,9 +1317,16 @@ function hasOvenConflict() {
 
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    byDay[active[i].day].push(active[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length - 1; i++) {
+      if (dayBlocks[i + 1].startSlot < dayBlocks[i].endSlot) return true;
     }
   }
   return false;
@@ -1318,11 +1335,22 @@ function hasScheduleConflict() {
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const byDay = Array.from({length: 7}, () => []);
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    const len = dayBlocks.length;
+    if (len < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < len; i++) {
+      const a = dayBlocks[i];
+      for (let j = i + 1; j < len; j++) {
+        const b = dayBlocks[j];
+        if (b.startSlot >= a.endSlot) break;
+        conflicts.add(a.id);
+        conflicts.add(b.id);
       }
     }
   }
@@ -1472,16 +1500,17 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Calculate conflictIds once per render pass
+// and reuse across renderOven and renderOvenBlocks to eliminate duplicate calls.
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid) => renderOvenBlocks(grid, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, conflictIds = getOvenConflictIds()) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
