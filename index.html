@@ -1295,21 +1295,44 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Group blocks by day and interval sweep for O(N log N) conflict detection.
+// Replaces O(N^2) pairwise comparisons with day bucket sorting and early-exit interval checking.
+function groupBlocksByDay(blocks) {
+  const byDay = [[], [], [], [], [], [], []];
+  for (let i = 0; i < blocks.length; i++) {
+    const day = blocks[i].day;
+    if (day >= 0 && day < 7) {
+      byDay[day].push(blocks[i]);
+    }
+  }
+  return byDay;
+}
+
 function hasOvenConflict() {
-  const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+  const byDay = groupBlocksByDay(state.ovenBlocks);
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length - 1; i++) {
+      if (dayBlocks[i + 1].startSlot < dayBlocks[i].endSlot) return true;
     }
   }
   return false;
 }
 
 function hasScheduleConflict() {
-  const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+  const active = [];
+  for (let i = 0; i < state.tasks.length; i++) {
+    if (!state.tasks[i].passive) active.push(state.tasks[i]);
+  }
+  const byDay = groupBlocksByDay(active);
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length - 1; i++) {
+      if (dayBlocks[i + 1].startSlot < dayBlocks[i].endSlot) return true;
     }
   }
   return false;
@@ -1317,12 +1340,18 @@ function hasScheduleConflict() {
 
 function getOvenConflictIds() {
   const conflicts = new Set();
-  const ob = state.ovenBlocks;
-  for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+  const byDay = groupBlocksByDay(state.ovenBlocks);
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < dayBlocks.length; i++) {
+      const cur = dayBlocks[i];
+      for (let j = i + 1; j < dayBlocks.length; j++) {
+        const next = dayBlocks[j];
+        if (next.startSlot >= cur.endSlot) break;
+        conflicts.add(cur.id);
+        conflicts.add(next.id);
       }
     }
   }
@@ -1472,16 +1501,18 @@ function createTaskBlockEl(task) {
 }
 
 // ─── OVEN RENDERER ───────────────────────────────────────────────────────
+// ⚡ Bolt Optimization: Compute getOvenConflictIds once and pass to renderOvenBlocks
+// Eliminates duplicate conflict calculation calls on every oven grid render.
 function renderOven() {
-  buildGrid('oven-grid-container', 'oven-grid', renderOvenBlocks);
   const conflicts = getOvenConflictIds();
+  buildGrid('oven-grid-container', 'oven-grid', (grid, dates) => renderOvenBlocks(grid, dates, conflicts));
   document.getElementById('oven-conflict-banner').classList.toggle('visible', conflicts.size > 0);
 }
 
-function renderOvenBlocks(grid) {
+function renderOvenBlocks(grid, dates, conflictIds) {
   const HEADER_H = 40;
   const GUTTER_W = 52;
-  const conflictIds = getOvenConflictIds();
+  if (!conflictIds) conflictIds = getOvenConflictIds();
 
   state.ovenBlocks.forEach(block => {
     const el = document.createElement('div');
@@ -2106,13 +2137,23 @@ function buildCategoryList() {
   `).join('');
 }
 
+// ⚡ Bolt Optimization: Single O(N + M) pass for category counts
+// Replaces C*(N + M) filter iterations and 2*C array allocations with a single-pass frequency count.
 function updateCategoryCounts() {
-  CATEGORIES.forEach(c => {
-    const count = state.tasks.filter(t => t.category === c.id).length
-                + state.ovenBlocks.filter(b => b.category === c.id).length;
-    const el = document.getElementById(`cat-count-${c.id}`);
-    if (el) el.textContent = count || '';
-  });
+  const counts = Object.create(null);
+  for (let i = 0; i < state.tasks.length; i++) {
+    const cat = state.tasks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < state.ovenBlocks.length; i++) {
+    const cat = state.ovenBlocks[i].category;
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  for (let i = 0; i < CATEGORIES.length; i++) {
+    const id = CATEGORIES[i].id;
+    const el = document.getElementById(`cat-count-${id}`);
+    if (el) el.textContent = counts[id] || '';
+  }
 }
 
 function buildCategorySelects() {
