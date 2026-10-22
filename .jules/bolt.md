@@ -5,3 +5,7 @@
 ## 2026-10-04 - Event Delegation for Large Interactive Grid Cells
 **Learning:** Attaching click event listeners individually to 672 grid cells (`querySelectorAll('.time-cell')`) on every grid re-render causes unnecessary DOM query overhead and listener attachment costs. Switching to event delegation on the grid container (`grid.addEventListener('click', ...)` with `e.target.closest('.time-cell')`) reduces click setup overhead from ~530ms down to ~0.2ms per 1000 grid updates.
 **Action:** Always use event delegation on parent containers when handling repetitive user actions across large grids or lists.
+
+## 2026-10-12 - Slot Grid Array Indexing for O(N) Overlap Conflict Detection
+**Learning:** Pairwise loop comparisons for block schedule overlaps scale quadratically ($O(N^2)$) as schedules grow. Since schedule time slots are discrete and bounded (7 days x 96 slots = 672 total slots), indexing block occupancy in a slot grid array reduces conflict checking to linear time ($O(N)$) and allows $O(1)$ early termination on first overlap collision.
+**Action:** Use fixed-size slot grid array indexing instead of pairwise block comparisons for discrete time-based schedule overlap checks.
