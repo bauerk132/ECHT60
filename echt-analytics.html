@@ -1084,23 +1084,31 @@ function computeAll() {
   });
 
   // ── Conflicts
-  const ovenConflicts = [];
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        ovenConflicts.push({ type: 'oven', a: oven[i], b: oven[j] });
+  // ⚡ Bolt Optimization: Day-bucketing for conflict detection
+  // Bucketing blocks by day (0-6) avoids cross-day comparisons, reducing checks from O(N^2) to O(sum(N_d^2)).
+  function findOverlapsByDay(blocks, type) {
+    const conflicts = [];
+    const days = [[], [], [], [], [], [], []];
+    for (let i = 0; i < blocks.length; i++) {
+      const day = blocks[i].day;
+      if (days[day]) days[day].push(blocks[i]);
+    }
+    for (let d = 0; d < 7; d++) {
+      const list = days[d];
+      const len = list.length;
+      for (let i = 0; i < len; i++) {
+        for (let j = i + 1; j < len; j++) {
+          if (list[i].startSlot < list[j].endSlot && list[j].startSlot < list[i].endSlot) {
+            conflicts.push({ type, a: list[i], b: list[j] });
+          }
+        }
       }
     }
+    return conflicts;
   }
-  const activeConflicts = [];
+  const ovenConflicts = findOverlapsByDay(oven, 'oven');
   const activeTasks = tasks.filter(t => !t.passive);
-  for (let i = 0; i < activeTasks.length; i++) {
-    for (let j = i+1; j < activeTasks.length; j++) {
-      if (blocksOverlap(activeTasks[i], activeTasks[j])) {
-        activeConflicts.push({ type: 'active', a: activeTasks[i], b: activeTasks[j] });
-      }
-    }
-  }
+  const activeConflicts = findOverlapsByDay(activeTasks, 'active');
 
   // ── Conflict density by hour
   const conflictByHour = new Array(24).fill(0);
