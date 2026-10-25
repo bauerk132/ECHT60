@@ -1295,34 +1295,74 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Day-bucketed and time-sorted sweep line conflict check
+// Replaces O(N^2) pairwise comparisons with bucketed sorting for faster overlap detection
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const dayBuckets = [[], [], [], [], [], [], []];
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    dayBuckets[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = dayBuckets[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (b.startSlot >= a.endSlot) break;
+        return true;
+      }
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Day-bucketed and time-sorted sweep line active task conflict check
+// Replaces O(N^2) pairwise comparisons with bucketed sorting for faster overlap detection
 function hasScheduleConflict() {
   const active = state.tasks.filter(t => !t.passive);
+  const dayBuckets = [[], [], [], [], [], [], []];
   for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+    dayBuckets[active[i].day].push(active[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = dayBuckets[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (b.startSlot >= a.endSlot) break;
+        return true;
+      }
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Day-bucketed and time-sorted sweep line oven conflict ID lookup
+// Replaces O(N^2) pairwise comparisons with bucketed sorting for faster overlap detection
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const dayBuckets = [[], [], [], [], [], [], []];
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    dayBuckets[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const list = dayBuckets[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (b.startSlot >= a.endSlot) break;
+        conflicts.add(a.id);
+        conflicts.add(b.id);
       }
     }
   }

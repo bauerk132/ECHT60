@@ -1083,21 +1083,39 @@ function computeAll() {
     catData[key].oven += (b.endSlot - b.startSlot)*15;
   });
 
-  // ── Conflicts
+  // ⚡ Bolt Optimization: Day-bucketed and start-slot sorted sweep line conflict collection
+  // Replaces O(N^2) unbucketed comparisons with bucketed sorting for faster overlap collection
   const ovenConflicts = [];
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        ovenConflicts.push({ type: 'oven', a: oven[i], b: oven[j] });
+  const ovenBuckets = [[], [], [], [], [], [], []];
+  oven.forEach(b => ovenBuckets[b.day].push(b));
+  for (let d = 0; d < 7; d++) {
+    const list = ovenBuckets[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (b.startSlot >= a.endSlot) break;
+        ovenConflicts.push({ type: 'oven', a, b });
       }
     }
   }
+
   const activeConflicts = [];
   const activeTasks = tasks.filter(t => !t.passive);
-  for (let i = 0; i < activeTasks.length; i++) {
-    for (let j = i+1; j < activeTasks.length; j++) {
-      if (blocksOverlap(activeTasks[i], activeTasks[j])) {
-        activeConflicts.push({ type: 'active', a: activeTasks[i], b: activeTasks[j] });
+  const activeBuckets = [[], [], [], [], [], [], []];
+  activeTasks.forEach(t => activeBuckets[t.day].push(t));
+  for (let d = 0; d < 7; d++) {
+    const list = activeBuckets[d];
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (b.startSlot >= a.endSlot) break;
+        activeConflicts.push({ type: 'active', a, b });
       }
     }
   }
