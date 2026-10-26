@@ -1295,34 +1295,68 @@ function blocksOverlap(a, b) {
   return a.day === b.day && a.startSlot < b.endSlot && b.startSlot < a.endSlot;
 }
 
+// ⚡ Bolt Optimization: Group oven blocks by day and sort by startSlot to optimize conflict checks from O(N²) to O(N log N)
 function hasOvenConflict() {
   const ob = state.ovenBlocks;
+  const byDay = [[], [], [], [], [], [], []];
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) return true;
+    byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    let maxEnd = dayBlocks[0].endSlot;
+    for (let i = 1; i < dayBlocks.length; i++) {
+      if (dayBlocks[i].startSlot < maxEnd) return true;
+      if (dayBlocks[i].endSlot > maxEnd) maxEnd = dayBlocks[i].endSlot;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Group active schedule tasks by day and sort by startSlot to optimize conflict checks from O(N²) to O(N log N)
 function hasScheduleConflict() {
-  const active = state.tasks.filter(t => !t.passive);
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      if (blocksOverlap(active[i], active[j])) return true;
+  const tasks = state.tasks;
+  const byDay = [[], [], [], [], [], [], []];
+  for (let i = 0; i < tasks.length; i++) {
+    if (!tasks[i].passive) {
+      byDay[tasks[i].day].push(tasks[i]);
+    }
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    if (dayBlocks.length < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    let maxEnd = dayBlocks[0].endSlot;
+    for (let i = 1; i < dayBlocks.length; i++) {
+      if (dayBlocks[i].startSlot < maxEnd) return true;
+      if (dayBlocks[i].endSlot > maxEnd) maxEnd = dayBlocks[i].endSlot;
     }
   }
   return false;
 }
 
+// ⚡ Bolt Optimization: Group oven blocks by day and sort by startSlot to prune interval overlap comparisons from O(N²) down to O(N log N)
 function getOvenConflictIds() {
   const conflicts = new Set();
   const ob = state.ovenBlocks;
+  const byDay = [[], [], [], [], [], [], []];
   for (let i = 0; i < ob.length; i++) {
-    for (let j = i + 1; j < ob.length; j++) {
-      if (blocksOverlap(ob[i], ob[j])) {
-        conflicts.add(ob[i].id);
-        conflicts.add(ob[j].id);
+    byDay[ob[i].day].push(ob[i]);
+  }
+  for (let d = 0; d < 7; d++) {
+    const dayBlocks = byDay[d];
+    const len = dayBlocks.length;
+    if (len < 2) continue;
+    dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+    for (let i = 0; i < len; i++) {
+      const b1 = dayBlocks[i];
+      for (let j = i + 1; j < len; j++) {
+        const b2 = dayBlocks[j];
+        if (b2.startSlot >= b1.endSlot) break;
+        conflicts.add(b1.id);
+        conflicts.add(b2.id);
       }
     }
   }
