@@ -1084,20 +1084,46 @@ function computeAll() {
   });
 
   // ── Conflicts
+  // ⚡ Bolt Optimization: Group by day and sort by startSlot to reduce conflict detection from O(N^2) to O(N log N)
   const ovenConflicts = [];
-  for (let i = 0; i < oven.length; i++) {
-    for (let j = i+1; j < oven.length; j++) {
-      if (blocksOverlap(oven[i], oven[j])) {
-        ovenConflicts.push({ type: 'oven', a: oven[i], b: oven[j] });
+  if (oven.length >= 2) {
+    const ovenByDayArr = [[], [], [], [], [], [], []];
+    for (let i = 0; i < oven.length; i++) {
+      ovenByDayArr[oven[i].day].push(oven[i]);
+    }
+    for (let d = 0; d < 7; d++) {
+      const dayBlocks = ovenByDayArr[d];
+      if (dayBlocks.length < 2) continue;
+      dayBlocks.sort((a, b) => a.startSlot - b.startSlot);
+      for (let i = 0; i < dayBlocks.length; i++) {
+        const a = dayBlocks[i];
+        for (let j = i + 1; j < dayBlocks.length; j++) {
+          const b = dayBlocks[j];
+          if (b.startSlot >= a.endSlot) break;
+          ovenConflicts.push({ type: 'oven', a, b });
+        }
       }
     }
   }
+
   const activeConflicts = [];
   const activeTasks = tasks.filter(t => !t.passive);
-  for (let i = 0; i < activeTasks.length; i++) {
-    for (let j = i+1; j < activeTasks.length; j++) {
-      if (blocksOverlap(activeTasks[i], activeTasks[j])) {
-        activeConflicts.push({ type: 'active', a: activeTasks[i], b: activeTasks[j] });
+  if (activeTasks.length >= 2) {
+    const tasksByDayArr = [[], [], [], [], [], [], []];
+    for (let i = 0; i < activeTasks.length; i++) {
+      tasksByDayArr[activeTasks[i].day].push(activeTasks[i]);
+    }
+    for (let d = 0; d < 7; d++) {
+      const dayTasks = tasksByDayArr[d];
+      if (dayTasks.length < 2) continue;
+      dayTasks.sort((a, b) => a.startSlot - b.startSlot);
+      for (let i = 0; i < dayTasks.length; i++) {
+        const a = dayTasks[i];
+        for (let j = i + 1; j < dayTasks.length; j++) {
+          const b = dayTasks[j];
+          if (b.startSlot >= a.endSlot) break;
+          activeConflicts.push({ type: 'active', a, b });
+        }
       }
     }
   }
