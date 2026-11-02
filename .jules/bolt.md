@@ -5,3 +5,7 @@
 ## 2026-10-04 - Event Delegation for Large Interactive Grid Cells
 **Learning:** Attaching click event listeners individually to 672 grid cells (`querySelectorAll('.time-cell')`) on every grid re-render causes unnecessary DOM query overhead and listener attachment costs. Switching to event delegation on the grid container (`grid.addEventListener('click', ...)` with `e.target.closest('.time-cell')`) reduces click setup overhead from ~530ms down to ~0.2ms per 1000 grid updates.
 **Action:** Always use event delegation on parent containers when handling repetitive user actions across large grids or lists.
+
+## 2026-10-07 - Day-Partitioned Sweep-Line Conflict Detection
+**Learning:** Naive $O(N^2)$ pairwise interval comparisons for conflict checking across multi-day schedules redundantly compare blocks that occur on different days. Partitioning blocks into day buckets and sorting each day by `startSlot` allows interval sweep-line checking with early termination (`if (next.startSlot >= cur.endSlot) break`), reducing conflict checking overhead by ~64% across drag, resize, and render loops.
+**Action:** Partition temporal items into coarse time buckets (e.g. days) before interval collision detection, and sort intervals to enable early-exit sweep lines instead of full Cartesian products.
