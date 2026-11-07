@@ -1023,34 +1023,45 @@ function computeAll() {
   oven.forEach(b => { ovenByDay[b.day] += (b.endSlot - b.startSlot)*15; });
 
   // ── Oven hourly utilization rate (% of days running that hour)
-  // For each hour, what fraction of the 7 days has oven running?
+  // ⚡ Bolt Optimization: Single-pass hourly sets across oven blocks avoids 24 redundant array traversals
   const ovenHourlyRate = Array(24).fill(0);
+  const hourlyDaySets = Array.from({ length: 24 }, () => new Set());
+  oven.forEach(b => {
+    const startH = Math.floor(b.startSlot / 4);
+    const endH = Math.ceil(b.endSlot / 4);
+    for (let h = Math.max(0, startH); h < Math.min(24, endH); h++) {
+      hourlyDaySets[h].add(b.day);
+    }
+  });
   for (let h = 0; h < 24; h++) {
-    const daysWithOven = new Set();
-    oven.forEach(b => {
-      const startH = Math.floor(b.startSlot/4);
-      const endH = Math.ceil(b.endSlot/4);
-      if (startH <= h && h < endH) daysWithOven.add(b.day);
-    });
-    ovenHourlyRate[h] = daysWithOven.size / 7;
+    ovenHourlyRate[h] = hourlyDaySets[h].size / 7;
   }
 
-  // ── Idle oven gaps: hours where tasks run but oven is off
-  // Per day: find task-active windows and oven-active windows, compute gaps
+  // ── Idle oven gaps & oven utilization during task hours
+  // ⚡ Bolt Optimization: Compute idle gaps, taskDays, and oven duration during task hours in a unified pass over days
   const idleGaps = []; // { day, startSlot, endSlot, durationMin }
+  const taskDays = new Set();
+  let totalTaskSlots = 0, ovenDuringTask = 0;
+
   for (let day = 0; day < 7; day++) {
     const dayTasks = tasks.filter(t => t.day === day);
-    const dayOven = oven.filter(b => b.day === day);
     if (dayTasks.length === 0) continue;
+    taskDays.add(day);
+
+    const dayOven = oven.filter(b => b.day === day);
 
     // Task active window
     const taskStart = Math.min(...dayTasks.map(t => t.startSlot));
     const taskEnd = Math.max(...dayTasks.map(t => t.endSlot));
+    totalTaskSlots += (taskEnd - taskStart);
 
-    // Build oven coverage bitmap for this day
+    // Build oven coverage bitmap and track oven run duration during task window
     const ovenCover = new Array(TOTAL_SLOTS).fill(false);
     dayOven.forEach(b => {
       for (let s = b.startSlot; s < b.endSlot; s++) ovenCover[s] = true;
+      const os = Math.max(b.startSlot, taskStart);
+      const oe = Math.min(b.endSlot, taskEnd);
+      if (oe > os) ovenDuringTask += (oe - os);
     });
 
     // Find contiguous idle gaps within task window
@@ -1114,24 +1125,7 @@ function computeAll() {
 
   // ── Efficiency score (0–100)
   // Factor 1: Oven utilization (during task hours) — higher is better, max 30pts
-  const taskDays = new Set(tasks.map(t => t.day));
-  let ovenUtilScore = 0;
-  if (taskDays.size > 0) {
-    let totalTaskSlots = 0, ovenDuringTask = 0;
-    taskDays.forEach(day => {
-      const dayTasks = tasks.filter(t => t.day === day);
-      const dayOven = oven.filter(b => b.day === day);
-      const taskStart = Math.min(...dayTasks.map(t => t.startSlot));
-      const taskEnd = Math.max(...dayTasks.map(t => t.endSlot));
-      totalTaskSlots += (taskEnd - taskStart);
-      dayOven.forEach(b => {
-        const os = Math.max(b.startSlot, taskStart);
-        const oe = Math.min(b.endSlot, taskEnd);
-        if (oe > os) ovenDuringTask += (oe - os);
-      });
-    });
-    ovenUtilScore = totalTaskSlots > 0 ? Math.min(30, Math.round((ovenDuringTask / totalTaskSlots) * 30)) : 0;
-  }
+  const ovenUtilScore = totalTaskSlots > 0 ? Math.min(30, Math.round((ovenDuringTask / totalTaskSlots) * 30)) : 0;
 
   // Factor 2: Passive stacking (passive time / total time) — higher is better, max 25pts
   const passiveRatio = totalTaskMin > 0 ? passiveMin / totalTaskMin : 0;
@@ -1924,8 +1918,10 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     if (DATA.tasks.length > 0 || DATA.ovenBlocks.length > 0) {
-      renderOvenHourlyCanvas(computeAll());
-      renderConflictCanvas(computeAll());
+      // ⚡ Bolt Optimization: Avoid redundant duplicate execution of computeAll() on resize
+      const A = computeAll();
+      renderOvenHourlyCanvas(A);
+      renderConflictCanvas(A);
     }
   }, 200);
 });
